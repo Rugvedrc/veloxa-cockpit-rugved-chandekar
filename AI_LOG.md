@@ -24,6 +24,14 @@ Main tasks given to AI, where it was wrong, and what changed. Honest entries onl
 | 11 | The chosen reasoning model returned empty text (it used all tokens thinking) | Live test | Disabled thinking for that model; empty replies now count as a failure |
 | 12 | First live agent replies invented facts ("4 incidents", "on-call since 22 Aug 2025", "few customers live") | Compared replies with the records | Stricter prompt, lower temperature, and a check that retries then discards replies containing numbers not in the agent's records |
 
+| 13 | Setup assumed the data room sits next to my project folder, so a fresh clone would fail | Planning review against HR's "tested from a fresh clone" line | `--data` accepts a folder or the zip; location remembered; clear error listing where it looked |
+| 14 | Wrote f-strings that nest the same quote type (works only on Python 3.12+) | Review before submission | Rewrote them; added a tokenizer-based test that fails if the pattern returns; proved the test catches it on a bad sample |
+| 15 | Assumed Python 3.10/3.12 were installed because `py -0` listed them; they are not | Tried to run them | Could not test on 3.10; relied on the guard test plus parsing every file with the 3.9 grammar |
+| 16 | Keyword fallback answered "Who won the cricket world cup?" with the CEO transcript because it contains the word "world" | New 35-question test set | Require >= 2 whole-word matches in one record |
+| 17 | "Why did AWS go up?" got High confidence although the data only shows the trend | Same test set | "Why" questions now say "I can't say why", Low confidence |
+| 18 | "Will Priya quit?" was routed to the attrition handler and listed the one departure as if it were an answer | Wrote the refusal tests | Added a prediction handler that declines and states what is on record |
+| 19 | Conflicts list included a claim (C03) that actually agrees with the records | Read every answer | Limited the list to real mismatches and mishearings |
+
 **Things I decided myself, not the AI**
 - Which source to believe when they conflict: each entry in TRANSCRIPT_NOTES.md was reviewed by me; the AI proposed, I accepted or changed. (To be filled in with my own reasoning where I disagreed.)
 

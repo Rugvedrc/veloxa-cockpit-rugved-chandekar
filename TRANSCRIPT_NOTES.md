@@ -2,6 +2,8 @@
 
 Everything that looks misheard, or that contradicts another source. The machine-readable copy lives in `data/curated/claims.json` and appears in the cockpit under "Conflicts in the sources". Keep the two in sync.
 
+> **Owner's review (Rugved Chandekar):** the conclusions below were first drafted with AI help. HR requires the reasoning behind every conflict to be mine. Before submitting, read each row, change anything you disagree with, and record the date you reviewed it here: ____________.
+
 Rule used throughout: **system exports beat transcripts for facts; transcripts beat exports for intent and context.** A speaker is also assumed to be biased towards their own team's story.
 
 ## T1 - CEO kickoff call (Ananya R.) - audio quality fair

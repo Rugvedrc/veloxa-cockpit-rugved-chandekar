@@ -70,6 +70,18 @@ Source: T2. Confidence: High that it was said; the CEO may disagree, which would
 **A-17** | 2026-11-16 | Files from later days that already exist in the pack folder are treated as **not yet released** until their day arrives (`--as-of`).
 Source: brief "released over the first week". Confidence: High. Cost: none; `build --as-of` lets us see any day.
 
+**A-18** | 2026-11-16 | The HR kickoff email (10:00 AM IST Mon 16 Nov) replaces the brief's schedule: no live sessions, five days, daily deadlines, final submission Fri 20 Nov 6:00 PM IST.
+Source: HR email, sections 1-3. Confidence: High. Would change my mind: a later correction from HR.
+
+**A-19** | 2026-11-16 | "Treat as released at 10:00 AM" means a drop is knowable from its release day onward, so "what did we know on date X" uses the folder's day, not file timestamps.
+Source: HR email section 3 table. Confidence: High.
+
+**A-20** | 2026-11-16 | Veloxa's data has 19 people but the brief says "180-person" and a CEO line says "one-eighty". HR's email now says all Veloxa material is synthetic; I still treat the exports as the truth over the brief text.
+Source: Employee_Master.xlsx, board updates. Confidence: High. Would change my mind: a later Employee_Master with ~180 rows.
+
+**A-21** | 2026-11-16 | Answers for "as of" dates after the last modelled drop come from the Day 1 snapshot (flagged in the answer) rather than from partially loaded later files.
+Source: own design (DECISIONS D-13). Confidence: High. Revisit when Day 2 is modelled.
+
 ## Invented private lives (the data is silent here)
 
 All of these are fiction from data/curated/personas.json. Work facts always come from the data, never from this file. Each should be revised the moment a source contradicts it.

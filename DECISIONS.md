@@ -52,4 +52,24 @@ Stdlib `http.server` plus one HTML file, Python 3.13, deps only `openpyxl` and `
 ## D-10 Severity scoring in the worry view
 3 = act now, 2 = look soon, 1 = FYI, assigned by me per rule. It is a judgement, so the view says so. Rahul's overpayment and the Atlas slip are 3 because one has a real person owed an answer and money out the door, and the other is the CEO's stated top concern.
 
+## D-11 The data room stays out of the repo and is found at setup
+- **Options:** (a) commit the data, (b) require a fixed folder layout, (c) locate folder or zip at run time.
+- **Chosen:** (c). `bootstrap.py --data <zip or folder>`; the path is remembered in a git-ignored file.
+- **Why:** HR's email marks the material confidential and says setup is tested from a fresh clone, so the code cannot assume a path on my machine.
+- **Safety:** zip entries that would escape the extraction folder are refused.
+- **Reverse if:** the organisers say the data may be committed.
+
+## D-12 Guard on agent output
+An LLM persona will happily invent specifics ("4 incidents", "on-call since 22 Aug 2025" appeared in the first live test). Replies are checked: any number not present in the agent's records, the question or the chat so far causes one retry, then the reply is replaced by the offline grounded answer. Limit: number words ("four") slip through. Reverse if an LLM-as-judge check is added.
+
+## D-13 One database per release date
+- **Options:** (a) one database with a `released_on` filter in every query, (b) one database per release date.
+- **Chosen:** (b), built on demand and cached; stale caches rebuild when code or curated inputs change.
+- **Why:** leakage of later material is then impossible by construction, not by remembering a WHERE clause in every handler. Data is tiny, so four small files are cheap.
+- `ANALYSED_THROUGH` in `build.py` caps answers at the newest modelled drop; later dates are answered from that snapshot with an explicit caveat rather than pretending later material was analysed.
+- **Reverse if:** data grows large enough that rebuilding per date is slow.
+
+## D-14 "Sources disagree" is data, not prose
+`claim.disagrees` marks transcript statements the records contradict. `ask.py` turns them into a `disagreement` list on headcount, ARR and burn answers, and the UI shows a banner. The email requires the cockpit to say so; making it a field means a test can assert it.
+
 *Revisions go here, newest first.*
