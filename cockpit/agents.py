@@ -102,9 +102,29 @@ def _remember(emp, q, a):
         f.write(json.dumps({"role": "assistant", "content": a}) + "\n")
 
 
-def _llm(system, history, question, key):
-    body = json.dumps({"model": MODEL, "max_tokens": 400, "system": system,
-                       "messages": history[-10:] + [{"role": "user", "content": question}]}).encode()
+GROQ_MODEL = os.environ.get("VELOXA_GROQ_MODEL", "llama-3.3-70b-versatile")
+
+
+def _provider():
+    """Pick the LLM from the environment. Keys are never stored in the repo."""
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq", os.environ["GROQ_API_KEY"]
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", os.environ["ANTHROPIC_API_KEY"]
+    return None, None
+
+
+def _llm(system, history, question, provider, key):
+    msgs = history[-10:] + [{"role": "user", "content": question}]
+    if provider == "groq":  # OpenAI-compatible endpoint
+        body = json.dumps({"model": GROQ_MODEL, "max_tokens": 400,
+                           "messages": [{"role": "system", "content": system}] + msgs}).encode()
+        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", body, {
+            "Authorization": f"Bearer {key}", "content-type": "application/json",
+            "User-Agent": "veloxa-cockpit"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read())["choices"][0]["message"]["content"]
+    body = json.dumps({"model": MODEL, "max_tokens": 400, "system": system, "messages": msgs}).encode()
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", body, {
         "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
@@ -133,17 +153,17 @@ def _offline(con, emp, question):
 def interview(con, emp, question, use_memory=True):
     if emp not in PERSONAS:
         raise KeyError(f"{emp} is not one of the 14 agents")
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    provider, key = _provider()
     hist = load_memory(emp) if use_memory else []
     if key:
         try:
-            text, cites, mode = _llm(system_prompt(con, emp), hist, question, key), [], "llm"
+            text, cites, mode = _llm(system_prompt(con, emp), hist, question, provider, key), [], f"llm ({provider})"
         except Exception as e:  # network/API failure must not break the demo
             text, cites = _offline(con, emp, question)
             mode = f"offline (LLM call failed: {type(e).__name__})"
     else:
         text, cites = _offline(con, emp, question)
-        mode = "offline (set ANTHROPIC_API_KEY for full persona mode)"
+        mode = "offline (set GROQ_API_KEY or ANTHROPIC_API_KEY for full persona mode)"
     if use_memory:
         _remember(emp, question, text)
     return {"emp_id": emp, "reply": text, "mode": mode, "cites": cites}
