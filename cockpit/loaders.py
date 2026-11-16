@@ -13,7 +13,7 @@ from datetime import timezone, timedelta
 import openpyxl
 from pypdf import PdfReader
 
-from .db import DATA_DIR
+from . import db
 
 IST = timezone(timedelta(hours=5, minutes=30))
 DAY_DATES = {"Day1": "2026-11-16", "Day2": "2026-11-17", "Day3": "2026-11-18", "Day4": "2026-11-19"}
@@ -25,8 +25,9 @@ AS_OF = None  # ISO date; only drops released on/before it are loaded ('what did
 
 def files(pattern):
     out = []
-    for p in sorted(DATA_DIR.glob(f"Day*/{pattern}")):
-        day = DAY_DATES.get(p.relative_to(DATA_DIR).parts[0][:4])
+    root = db.data_dir()
+    for p in sorted(root.glob(f"Day*/{pattern}")):
+        day = DAY_DATES.get(p.relative_to(root).parts[0][:4])
         if AS_OF is None or (day and day <= AS_OF):
             out.append(p)
     return out
@@ -35,7 +36,7 @@ def files(pattern):
 def add_source(con, path, kind, note=""):
     day = next((DAY_DATES[p[:4]] for p in path.parts if p[:4] in DAY_DATES), None)
     con.execute("INSERT INTO source(name,relpath,kind,released_on,note) VALUES(?,?,?,?,?)",
-                (path.name, str(path.relative_to(DATA_DIR)), kind, day, note))
+                (path.name, str(path.relative_to(db.data_dir())), kind, day, note))
 
 
 def _rows(path, header_row=3):

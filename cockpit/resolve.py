@@ -58,9 +58,9 @@ def load_entities(con):
 
 def load_claims(con):
     for c in json.loads((ROOT / "data" / "curated" / "claims.json").read_text(encoding="utf8")):
-        con.execute("INSERT INTO claim VALUES(?,?,?,?,?,?,?,?,?)", (
+        con.execute("INSERT INTO claim VALUES(?,?,?,?,?,?,?,?,?,?)", (
             c["id"], c["doc_id"], c["speaker"], c["topic"], c["as_heard"], c["resolved"],
-            c["verdict"], c["evidence"], c["confidence"]))
+            c["verdict"], c["evidence"], c["confidence"], int(c.get("disagrees", False))))
 
 
 def find_person(con, text):

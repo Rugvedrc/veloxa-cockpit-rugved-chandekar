@@ -4,3 +4,6 @@ __pycache__/
 data/veloxa.db
 data/memory/
 .env
+data/raw/
+data/veloxa_*.db
+data/.datapath
