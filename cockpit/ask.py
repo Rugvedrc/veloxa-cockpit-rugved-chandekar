@@ -31,12 +31,20 @@ def refs(rows_or_refs):
     out = []
     for f, ns in by.items():
         ns = [n for n in ns if n]
-        out.append(f"{f} rows {', '.join(ns)}" if ns else f)
+        out.append(f"{f} {'row' if len(ns) == 1 else 'rows'} {', '.join(ns)}" if ns else f)
     return out
 
 
-def reply(answer, cites=(), confidence="High", caveats=()):
-    return {"answer": answer, "cites": refs(cites), "confidence": confidence, "caveats": list(caveats)[:2]}
+def reply(answer, cites=(), confidence="High", caveats=(), disagreement=()):
+    """`disagreement` lists places where what people said contradicts the records."""
+    return {"answer": answer, "cites": refs(cites), "confidence": confidence,
+            "caveats": list(caveats)[:2], "disagreement": list(disagreement)}
+
+
+def disagreements(con, topic):
+    """Spoken claims on `topic` that the records contradict, as short readable lines."""
+    rows = con.execute("SELECT speaker, as_heard, resolved FROM claim WHERE topic=? AND disagrees=1 ORDER BY id", (topic,))
+    return [f"{r['speaker']}: {r['as_heard']}  |  records: {r['resolved']}" for r in rows]
 
 
 # --------------------------------------------------------------------------- handlers
@@ -48,6 +56,20 @@ def h_privacy(con, q, ql):
             return reply(f"I can't share individual pay, only totals (that's the CFO's rule). I can give total payroll "
                          f"by month instead.", ["T2_CFO_Call.docx"], "High")
     return None
+
+
+def h_prediction(con, q, ql):
+    """'Will X quit?' is a forecast about a person; the data can't support one."""
+    if not re.search(r"\bwill\b.*\b(quit|leave|resign)|going to (quit|leave|resign)|about to (quit|leave|resign)", ql):
+        return None
+    emp = find_person(con, q)
+    gone = con.execute("SELECT full_name, exit_date, src_ref FROM person WHERE status != 'Active'").fetchall()
+    who = con.execute("SELECT full_name FROM person WHERE emp_id=?", (emp,)).fetchone() if emp else None
+    known = "; ".join("%s (last day %s)" % (g["full_name"], g["exit_date"]) for g in gone) or "none"
+    about = f"nothing in the data says {who['full_name']} is leaving" if who else "nothing in the data points to anyone else leaving"
+    return reply(f"I can't predict that. On record, departures are: {known}; {about}.",
+                 [g["src_ref"] for g in gone] or ["Employee_Master.xlsx"], "Low",
+                 ["Forecasting individual exits would need engagement and attrition data that isn't loaded."])
 
 
 def h_worry(con, q, ql):
@@ -94,11 +116,13 @@ def h_headcount(con, q, ql):
     total = sum(r["n"] for r in by)
     dept = con.execute("SELECT dept, COUNT(*) n FROM person GROUP BY dept ORDER BY n DESC").fetchall()
     bd = con.execute("SELECT * FROM board_update ORDER BY sent_on DESC LIMIT 1").fetchone()
-    return reply(f"Veloxa has {total} people in Keka ({', '.join(f'{r['n']} {r['status']}' for r in by)}). "
-                 f"By department: {', '.join(f'{r['dept']} {r['n']}' for r in dept)}. "
+    status = ", ".join("%d %s" % (r["n"], r["status"]) for r in by)
+    depts = ", ".join("%s %d" % (r["dept"], r["n"]) for r in dept)
+    return reply(f"Veloxa has {total} people in Keka ({status}). By department: {depts}. "
                  f"The latest board update also says {bd['team']}.",
                  ["Employee_Master.xlsx"] + [bd["src_ref"]], "High",
-                 ["Nothing in the data supports the ~180 mentioned on the call. Contractors aren't in Keka."])
+                 ["Nothing in the data supports the ~180 mentioned on the call. Contractors aren't in Keka."],
+                 disagreements(con, "headcount"))
 
 
 def h_arr(con, q, ql):
@@ -110,7 +134,8 @@ def h_arr(con, q, ql):
                  f"({(rows[-1]['arr_cr'] / rows[0]['arr_cr'] - 1) * 100:.0f}% in one quarter).",
                  [r["src_ref"] for r in rows], "Medium",
                  ["The kickoff call said '42-45 crore'; the board says 6.1 Cr, so I went with the board.",
-                  "Board figures are self-reported; there's no billing data to check them."])
+                  "Board figures are self-reported; there's no billing data to check them."],
+                 disagreements(con, "arr"))
 
 
 def h_burn(con, q, ql):
@@ -120,7 +145,8 @@ def h_burn(con, q, ql):
     txt = "; ".join(f"{r['period']}: burn Rs {r['burn_lakh']:.0f} L/month, runway {r['runway_months']} months" for r in rows)
     return reply(f"Burn and runway per the board: {txt}.", [r["src_ref"] for r in rows], "Medium",
                  ["The '2.2 lakh' burn on the calls can't be right: payroll alone is Rs 31.75 L a month.",
-                  "The ledger export is partial, so I can't recompute burn myself."])
+                  "The ledger export is partial, so I can't recompute burn myself."],
+                 disagreements(con, "burn"))
 
 
 def h_marketing(con, q, ql):
@@ -146,8 +172,10 @@ def h_cloud(con, q, ql):
     rows = con.execute("SELECT txn_date, amount, src_ref FROM gl_entry WHERE vendor_id='AWS' ORDER BY txn_date").fetchall()
     txt = ", ".join(f"{r['txn_date'][5:7]}/{r['txn_date'][:4]} {inr(r['amount'])}" for r in rows)
     g = (rows[-1]["amount"] / rows[0]["amount"] - 1) * 100
-    return reply(f"AWS bills (booked monthly in arrears): {txt}. Up {g:.0f}% from first to last.",
-                 [r["src_ref"] for r in rows], "High",
+    why = re.search(r"\bwhy\b|cause|reason|driver|explain", ql)
+    lead = "I can't say why. What the books show: " if why else ""
+    return reply(f"{lead}AWS bills (booked monthly in arrears): {txt}. Up {g:.0f}% from first to last.",
+                 [r["src_ref"] for r in rows], "Low" if why else "High",
                  ["The cause isn't in the data; there's no usage breakdown."])
 
 
@@ -189,7 +217,7 @@ def h_vendor(con, q, ql):
 def h_conflicts(con, q, ql):
     if not re.search(r"conflict|contradict|disagree|which (number|source)|trust|misheard|inconsisten", ql):
         return None
-    rows = con.execute("SELECT * FROM claim WHERE confidence IN ('H','M') AND resolved NOT LIKE 'Design%' ORDER BY id").fetchall()
+    rows = con.execute("SELECT * FROM claim WHERE disagrees=1 OR topic IN ('tools','people') ORDER BY id").fetchall()
     txt = " ".join(f"[{r['id']}] Heard: {r['as_heard']} -> {r['resolved']}." for r in rows[:6])
     return reply(f"Where what people said disagrees with the records: {txt}",
                  [f"claim {r['id']} ({r['evidence']})" for r in rows[:6]], "Medium",
@@ -230,7 +258,7 @@ def h_person(con, q, ql):
                  ["To talk to them directly, use the People view."])
 
 
-HANDLERS = [h_privacy, h_worry, h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
+HANDLERS = [h_privacy, h_prediction, h_worry, h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
             h_cloud, h_hiring, h_attrition, h_atlas, h_vendor, h_conflicts, h_team, h_person]
 
 
@@ -238,12 +266,13 @@ def fallback(con, q):
     """Last resort: keyword search over free text. If nothing matches we say so."""
     words = [w for w in re.findall(r"[a-z]{4,}", q.lower()) if w not in
              {"what", "when", "where", "which", "about", "does", "have", "with", "this", "that", "from", "tell", "give"}]
-    hits = []
-    for w in words:
-        for r in con.execute("SELECT doc_id, title, src_ref, body FROM document WHERE lower(body) LIKE ?", (f"%{w}%",)):
-            hits.append((r["doc_id"], r["src_ref"]))
-        for r in con.execute("SELECT subject, src_ref FROM message WHERE lower(body||subject) LIKE ?", (f"%{w}%",)):
-            hits.append((r["subject"], r["src_ref"]))
+    # A record counts only if it contains at least two different question words (one if the question
+    # has just one), matched as whole words: a lone common word like "world" is not evidence.
+    need = min(2, len(words))
+    pats = [re.compile(r"\b%s\b" % re.escape(w)) for w in words]
+    records = [(r["doc_id"], r["src_ref"], r["body"].lower()) for r in con.execute("SELECT doc_id, src_ref, body FROM document")]
+    records += [(r["subject"], r["src_ref"], (r["subject"] + " " + r["body"]).lower()) for r in con.execute("SELECT subject, src_ref, body FROM message")]
+    hits = [(name, ref) for name, ref, text in records if need and sum(1 for p in pats if p.search(text)) >= need]
     if not hits:
         return reply("I don't have anything on that in the data.", [], "None",
                      ["Try headcount, ARR, burn, payroll totals, marketing spend, AWS, hiring, Atlas, a person, or 'what should I worry about'."])

@@ -1,11 +1,15 @@
-"""Tiny stdlib HTTP server: the cockpit UI plus a JSON API. Local only (127.0.0.1)."""
+"""Tiny stdlib HTTP server: the cockpit UI plus a JSON API. Local only (127.0.0.1).
+
+Every endpoint takes an optional `as_of` (YYYY-MM-DD): the answer then uses only material
+released on or before that date.
+"""
 import json
 import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 from . import agents
-from .ask import ask
-from .db import connect
+from . import build as builder
 
 UI = (pathlib.Path(__file__).parent / "ui.html").read_bytes()
 
@@ -20,33 +24,40 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        con = connect()
+        url = urlparse(self.path)
+        as_of = (parse_qs(url.query).get("as_of") or [None])[0] or None
         try:
-            if self.path == "/":
+            if url.path == "/":
                 return self._send(UI, ctype="text/html")
-            if self.path == "/api/worry":
-                return self._send([dict(r) for r in con.execute("SELECT * FROM finding ORDER BY severity DESC, id")])
-            if self.path == "/api/people":
-                return self._send(agents.roster(con))
-            if self.path == "/api/claims":
-                return self._send([dict(r) for r in con.execute("SELECT * FROM claim ORDER BY id")])
+            if url.path == "/api/worry":
+                return self._send(builder.table("SELECT * FROM finding ORDER BY severity DESC, id", as_of))
+            if url.path == "/api/claims":
+                return self._send(builder.table("SELECT * FROM claim ORDER BY id", as_of))
+            if url.path == "/api/people":
+                con = builder.get_con(as_of)
+                try:
+                    return self._send(agents.roster(con))
+                finally:
+                    con.close()
             self._send({"error": "not found"}, 404)
-        finally:
-            con.close()
+        except builder.NothingReleased:
+            self._send([])  # nothing released yet: empty views
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-        con = connect()
+        as_of = body.get("as_of") or None
         try:
             if self.path == "/api/ask":
-                return self._send(ask(con, body.get("q", "")))
+                return self._send(builder.answer(body.get("q", ""), as_of))
             if self.path == "/api/interview":
-                return self._send(agents.interview(con, body["emp"], body.get("q", "")))
+                con = builder.get_con(as_of)
+                try:
+                    return self._send(agents.interview(con, body["emp"], body.get("q", "")))
+                finally:
+                    con.close()
             self._send({"error": "not found"}, 404)
-        except KeyError as e:
-            self._send({"error": str(e)}, 400)
-        finally:
-            con.close()
+        except (KeyError, builder.NothingReleased) as e:
+            self._send({"error": f"{type(e).__name__}: {e}"}, 400)
 
     def log_message(self, *a):
         pass
