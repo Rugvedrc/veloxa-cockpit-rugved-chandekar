@@ -21,8 +21,8 @@ The data room is expected at `../Veloxa_Hackathon_Release_Packs`; otherwise set 
 .venv\Scripts\python cockpit.py build --as-of 2026-11-18   # what did we know on that date
 ```
 
-Agent interviews run offline from grounded facts by default. Set `GROQ_API_KEY` (or `ANTHROPIC_API_KEY`) for full persona mode. The agent's facts are then sent to that provider; unset the variable to stay local. Never put a key in a file in this repo.
-PowerShell: `$env:GROQ_API_KEY = "your-key"` before `cockpit.py serve`. Change the model with `VELOXA_GROQ_MODEL`.
+Agent interviews run offline from grounded facts by default. For full persona mode put `NVIDIA_API_KEY` (or `GROQ_API_KEY` / `ANTHROPIC_API_KEY`) in a git-ignored `.env` file in the repo root or its parent folder, or set it as an environment variable. Only those three names are read from `.env`. The agent's facts are then sent to that provider; remove the key to stay local. Never commit a key.
+Change the model with `VELOXA_NVIDIA_MODEL` / `VELOXA_GROQ_MODEL`. If a model answers with a number that is not in the agent's records, the reply is retried once and then replaced by the offline answer.
 
 ## Layout
 

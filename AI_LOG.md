@@ -20,6 +20,10 @@ Main tasks given to AI, where it was wrong, and what changed. Honest entries onl
 | 8 | Offline agent reply pasted raw email text, quoting itself in third person | Ran an interview | Rewrote email facts in first person |
 | 9 | First summary to me said the Day 2/4/8 reviews were live sessions; the HR email says there are none | Read the HR email | Plan changed to async deliverables |
 
+| 10 | Defaulted the NVIDIA provider to a Llama model from memory; it had been retired (HTTP 410) | Live test | Listed live models from the API; switched default to a current one |
+| 11 | The chosen reasoning model returned empty text (it used all tokens thinking) | Live test | Disabled thinking for that model; empty replies now count as a failure |
+| 12 | First live agent replies invented facts ("4 incidents", "on-call since 22 Aug 2025", "few customers live") | Compared replies with the records | Stricter prompt, lower temperature, and a check that retries then discards replies containing numbers not in the agent's records |
+
 **Things I decided myself, not the AI**
 - Which source to believe when they conflict: each entry in TRANSCRIPT_NOTES.md was reviewed by me; the AI proposed, I accepted or changed. (To be filled in with my own reasoning where I disagreed.)
 
