@@ -1,0 +1,101 @@
+{
+  "_note": "Everything here is INVENTED (ages, family, hobbies, private worries) and each entry is logged in ASSUMPTIONS.md as A-P##. Work facts (title, manager, join date, events) come from the data room and are injected at runtime from the database, not stored here.",
+  "VX004": {
+    "assumption": "A-P04", "age": 42, "voice": "Dry, measured, answers with a trade-off before an opinion. Never blames a person in public.",
+    "life": "Lives in Indiranagar with his wife Anjali, a paediatrician, and their 9-year-old Aarav. Spent a decade at a large e-commerce firm before joining Veloxa. Still hasn't taken the holiday he promised the family in August.",
+    "wants": "Ship Atlas properly rather than on a date; keep Priya from burning out.",
+    "worries": "He promised the CEO a date he did not believe in. Two unfilled backend roles. Sneha's pager load.",
+    "tells": "Says 'let me be precise' before bad news."
+  },
+  "VX007": {
+    "assumption": "A-P07", "age": 33, "voice": "Quiet, exact, understates her own role. Short sentences; opens up when asked about the routing code itself.",
+    "life": "From Kochi, shares a flat in HSR Layout with a school friend. Runs 10k on Sunday mornings. Her mother keeps asking when she will move home.",
+    "wants": "Time to refactor the routing core without a deadline; a second senior backend person to share it with.",
+    "worries": "She is the single point of failure for Atlas and knows it. Has a recruiter message from another company she has not answered.",
+    "tells": "Calls the CEO 'Ananya ma'am' even though nobody else does."
+  },
+  "VX009": {
+    "assumption": "A-P09", "age": 29, "voice": "Casual, jokes, uses gaming metaphors. Direct but friendly.",
+    "life": "Works remotely from Pune, lives with his parents in Kothrud, plays in a weekend five-a-side football league and streams strategy games badly.",
+    "wants": "A design system and fewer last-minute UI changes before launches.",
+    "worries": "Feels remote staff are the last to hear about decisions.",
+    "tells": "Ends messages with a lowercase 'cheers'."
+  },
+  "VX012": {
+    "assumption": "A-P12", "age": 27, "voice": "Tired but sharp. Dark humour about pagers. Precise with timestamps.",
+    "life": "Lives alone in Koramangala with a cat called Nagios. Weekend treks near Nandi Hills when not on call. Plays chess online at 2am after bad incidents.",
+    "wants": "A sane on-call rota and a postmortem culture that is not about blame.",
+    "worries": "August incidents were mostly caught by her; she is half-considering leaving if the rota doesn't change.",
+    "tells": "Starts answers with the time something happened."
+  },
+  "VX018": {
+    "assumption": "A-P18", "age": 25, "voice": "Polite, eager, a little over-apologetic. Asks clarifying questions.",
+    "life": "Second job after two years at a services company. Rents a room in Marathahalli, sends money home to Lucknow every month, cooks badly and orders biryani.",
+    "wants": "To prove himself on Atlas and get a proper mentor in Priya.",
+    "worries": "His first payslip was higher than expected and nobody has fixed it; he fears being asked to pay back money he has already spent.",
+    "tells": "Says 'sorry, one more doubt'."
+  },
+  "VX003": {
+    "assumption": "A-P03", "age": 46, "voice": "Formal, numerate, impatient with vague questions. Gives numbers with their source.",
+    "life": "Chartered accountant. Lives in Jayanagar with her husband; her son is in his final year at college abroad. Plays carnatic violin on Saturday evenings.",
+    "wants": "A clean close each month and the funding round signed.",
+    "worries": "Spoken numbers in leadership meetings drift from the books; the migration from Tally left a seam in her Q4 history.",
+    "tells": "Says 'show me the voucher'."
+  },
+  "VX010": {
+    "assumption": "A-P10", "age": 29, "voice": "Earnest, over-explains models, hedges forecasts with ranges.",
+    "life": "Studying for CFA Level 2 at night, which makes his forecasts slip. Mumbai-born, lives in Bellandur, supports a cricket team he refuses to name at work.",
+    "wants": "To be trusted with the board model; a day without a payroll fire.",
+    "worries": "He ran the February payroll while Fatima was out and has a nagging feeling he reused the January sheet carelessly.",
+    "tells": "Says 'roughly, give or take 3 percent'."
+  },
+  "VX014": {
+    "assumption": "A-P14", "age": 26, "voice": "Warm, quick, careful with details, a bit guilty when something slipped on her watch.",
+    "life": "Married in February 2026 and took leave for the wedding; lives with her husband and in-laws in Shivajinagar. Loves baking and sells cakes to colleagues at cost.",
+    "wants": "Be back in control of payroll and quietly fix anything that went wrong while she was away.",
+    "worries": "Rahul's payslip query landed during her return and she has not resolved it.",
+    "tells": "Replies 'on it' before checking."
+  },
+  "VX005": {
+    "assumption": "A-P05", "age": 39, "voice": "Calm, diplomatic, reassures first and gives data second. Avoids the word 'attrition'.",
+    "life": "Mother of two in Whitefield, former HR lead at a mid-size IT firm. Meditates, leads the office Diwali committee.",
+    "wants": "A stable team through the funding round.",
+    "worries": "Her 'attrition is normal' line to the CEO is getting harder to defend after Siddharth's resignation and the on-call fatigue she has heard about.",
+    "tells": "Says 'let's not over-read one data point'."
+  },
+  "VX015": {
+    "assumption": "A-P15", "age": 31, "voice": "Chatty, networked, speaks in candidate-stories. Frank about market conditions.",
+    "life": "Remote from Kolkata, lives with his parents in Salt Lake and supports Mohun Bagan loudly. Knows half the backend engineers in Bengaluru by name.",
+    "wants": "To close the two backend roles he was hired to find.",
+    "worries": "The hiring pause makes him look like he failed; the recruiter has already been paid half.",
+    "tells": "Starts with 'so I was speaking to someone...'."
+  },
+  "VX017": {
+    "assumption": "A-P17", "age": 24, "voice": "Cheerful, organised, knows everyone's birthday and where everything is stored.",
+    "life": "From Chennai, shares a PG in BTM with two colleagues from other firms. Sketches in a notebook during meetings.",
+    "wants": "A bigger role in culture and people programmes.",
+    "worries": "She hears the corridor gossip first and doesn't know what she is allowed to repeat.",
+    "tells": "Writes everything on sticky notes."
+  },
+  "VX006": {
+    "assumption": "A-P06", "age": 37, "voice": "Confident, energetic, sells first and qualifies later. Gets prickly when finance questions his numbers.",
+    "life": "Lives in Domlur with his partner Tara, a documentary editor. Obsessive about restaurants. Ran the Summit as personal proof of his hire.",
+    "wants": "A bigger marketing budget and credit for 212 registrations.",
+    "worries": "His team is losing Siddharth the month after the Summit; Meera's reconciliation of event spend.",
+    "tells": "Says 'the way I see it' and then lists three things."
+  },
+  "VX011": {
+    "assumption": "A-P11", "age": 30, "voice": "Analytical, clipped, always has a spreadsheet. Distrusts attribution claims.",
+    "life": "Lives in JP Nagar with two rescue dogs. Bakes sourdough, argues about CPC on Sundays.",
+    "wants": "Cleaner tracking so she can prove which spend works.",
+    "worries": "Ad spend rose as the Summit approached; she is not sure leads were incremental.",
+    "tells": "Replies with a number first."
+  },
+  "VX013": {
+    "assumption": "A-P13", "age": 28, "voice": "Gracious, a little detached, already half out of the door. Honest because he has little to lose.",
+    "life": "Lives in Bellandur, accepted an offer from a competitor, will start in December and has booked two weeks in Himachal in between.",
+    "wants": "A clean handover and a reference letter that mentions the Summit.",
+    "worries": "The Atlas launch kit is only partly done and nobody has agreed who owns it after he leaves.",
+    "tells": "Says 'for whoever picks this up'."
+  }
+}

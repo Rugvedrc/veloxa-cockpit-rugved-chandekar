@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Veloxa Cockpit</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--mute:#5b6570;--line:#dfe3e8;--acc:#1f5fbf;--hi:#b3261e;--mid:#a05a00;--lo:#4a6b3a}
+@media(prefers-color-scheme:dark){:root{--bg:#14171a;--card:#1d2126;--ink:#e8eaed;--mute:#9aa4af;--line:#2e343b;--acc:#7aa8f0;--hi:#f2827b;--mid:#e0a85a;--lo:#9cc088}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,Segoe UI,sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0}nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button{background:none;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer}
+nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+main{max-width:860px;margin:0 auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin:10px 0}
+form{display:flex;gap:8px}input,select{flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font:inherit}
+form button{padding:10px 16px;border:0;border-radius:6px;background:var(--acc);color:#fff;cursor:pointer;font:inherit}
+.mute{color:var(--mute);font-size:13px}.pill{font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);margin-left:6px}
+.s3{color:var(--hi)}.s2{color:var(--mid)}.s1{color:var(--lo)}ul{margin:6px 0;padding-left:20px}
+.chips button{margin:3px 4px 0 0;padding:4px 10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;cursor:pointer;font-size:13px}
+.hidden{display:none}.q{font-weight:600}
+</style></head><body>
+<header><h1>Veloxa CXO Cockpit</h1>
+<nav><button data-t="ask" class="on">Ask</button><button data-t="worry">What should I worry about</button><button data-t="people">People</button><button data-t="conf">Conflicts in the sources</button></nav></header>
+<main>
+<section id="ask"><form id="f"><input id="q" placeholder="Ask anything about the company..." autofocus><button>Ask</button></form>
+<div class="chips" id="chips"></div><div id="log"></div></section>
+<section id="worry" class="hidden"></section>
+<section id="people" class="hidden"><select id="who"></select><div id="bio" class="mute" style="margin:8px 0"></div>
+<form id="pf"><input id="pq" placeholder="Talk to them..."><button>Send</button></form><div id="plog"></div></section>
+<section id="conf" class="hidden"></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('hidden',s.id!==b.dataset.t));
+  if(b.dataset.t==='worry')loadWorry();if(b.dataset.t==='conf')loadConf();if(b.dataset.t==='people')loadPeople();});
+const SUG=["How many people work here?","What is our ARR?","What should I worry about?","What is our burn and runway?","How much have we spent on the Summit?","Why is AWS going up?","Are there any payroll errors?","Total payroll by month","Who is Rahul?","What is the status of Atlas?","How much does Meera earn?"];
+SUG.forEach(s=>{const b=el('button','',s);b.onclick=()=>{$('#q').value=s;$('#f').requestSubmit()};$('#chips').appendChild(b)});
+async function post(u,b){return (await fetch(u,{method:'POST',body:JSON.stringify(b)})).json()}
+$('#f').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.trim();if(!q)return;$('#q').value='';
+  const r=await post('/api/ask',{q});const c=el('div','card');c.append(el('div','q',q),el('div','',r.answer));
+  const m=el('div','mute','Confidence: '+r.confidence);c.append(m);
+  if(r.cites.length){const u=el('ul','mute');r.cites.forEach(x=>u.append(el('li','',x)));c.append(el('div','mute','Sources:'),u)}
+  if(r.caveats.length){const u=el('ul','mute');r.caveats.forEach(x=>u.append(el('li','',x)));c.append(el('div','mute','Caveats:'),u)}
+  $('#log').prepend(c)};
+async function loadWorry(){const d=await (await fetch('/api/worry')).json();const s=$('#worry');s.replaceChildren();
+  d.forEach(f=>{const c=el('div','card');const t=el('div','q s'+f.severity,f.title);t.append(el('span','pill',['','FYI','Look soon','Act now'][f.severity]));
+  c.append(t,el('div','',f.detail),el('div','mute','Evidence: '+f.evidence));s.append(c)})}
+async function loadConf(){const d=await (await fetch('/api/claims')).json();const s=$('#conf');s.replaceChildren();
+  d.forEach(x=>{const c=el('div','card');c.append(el('div','q',x.id+' - '+x.topic+' ('+x.doc_id+', confidence '+x.confidence+')'),el('div','mute','Heard: '+x.as_heard),el('div','','Resolved: '+x.resolved),el('div','',x.verdict),el('div','mute','Evidence: '+x.evidence));s.append(c)})}
+let people=[];
+async function loadPeople(){if(people.length)return;people=await (await fetch('/api/people')).json();
+  people.forEach(p=>{const o=el('option','',p.full_name+' - '+p.title);o.value=p.emp_id;$('#who').append(o)});show()}
+function show(){const p=people.find(x=>x.emp_id===$('#who').value);$('#bio').textContent=p.dept+' | '+p.location+' | joined '+p.join_date+' | '+p.status;$('#plog').replaceChildren()}
+$('#who').onchange=show;
+$('#pf').onsubmit=async e=>{e.preventDefault();const q=$('#pq').value.trim();if(!q)return;$('#pq').value='';
+  const r=await post('/api/interview',{emp:$('#who').value,q});const c=el('div','card');
+  c.append(el('div','q','You: '+q),el('div','',r.reply),el('div','mute',r.mode+(r.cites.length?' | '+r.cites.join(', '):'')));$('#plog').prepend(c)};
+</script></body></html>
