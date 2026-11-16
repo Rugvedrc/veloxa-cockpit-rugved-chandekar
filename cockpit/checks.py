@@ -132,8 +132,8 @@ def spoken_vs_data(con):
     _add(con, "F-NUMBERS", "data", 2,
          "The CEO's and CFO's spoken numbers do not match the board numbers",
          f"ARR was said as '42-45 crore' vs Rs {b['arr_cr']} Cr in the board update; burn as 'two point two' vs "
-         f"Rs {b['burn_lakh']:.0f} lakh/month; headcount as '180' (brief) vs {b['team']}. The leaders are working "
-         f"from different or imagined numbers - itself a governance risk.",
+         f"Rs {b['burn_lakh']:.0f} lakh/month; headcount as '180' (brief) vs {b['team']}. Leaders are quoting "
+         f"different numbers from the board's, so check figures before using them.",
          "T1; T2; Board_Update_Jul-Sep_2026.pdf; Employee_Master.xlsx")
 
 
@@ -145,8 +145,8 @@ def sequence_gaps(con):
             _add(con, f"F-SEQ-{a['voucher']}", "finance", 1,
                  f"Voucher {a['voucher']} is dated after {b['voucher']}",
                  f"{a['voucher']} is dated {a['txn_date']} but the higher-numbered {b['voucher']} is dated "
-                 f"{b['txn_date']}. Journal numbers should rise with date, so one of them was keyed late or "
-                 f"back-dated. Minor on its own; relevant when matching invoices to payments.",
+                 f"{b['txn_date']}. Numbers normally rise with date, so one was probably entered out of order. "
+                 f"Minor; matters only when matching invoices to payments.",
                  f"{a['src_ref']}; {b['src_ref']}")
 
 

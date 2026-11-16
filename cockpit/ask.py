@@ -36,7 +36,7 @@ def refs(rows_or_refs):
 
 
 def reply(answer, cites=(), confidence="High", caveats=()):
-    return {"answer": answer, "cites": refs(cites), "confidence": confidence, "caveats": list(caveats)}
+    return {"answer": answer, "cites": refs(cites), "confidence": confidence, "caveats": list(caveats)[:2]}
 
 
 # --------------------------------------------------------------------------- handlers
@@ -45,9 +45,8 @@ def h_privacy(con, q, ql):
         emp = find_person(con, q)
         if emp:
             p = con.execute("SELECT full_name FROM person WHERE emp_id=?", (emp,)).fetchone()
-            return reply(f"I can't show individual pay. The CFO's rule is that the CEO sees totals only, so I won't give "
-                         f"{p['full_name']}'s figures. I can give total payroll by month or by department headcount.",
-                         ["T2_CFO_Call.docx"], "High")
+            return reply(f"I can't share individual pay, only totals (that's the CFO's rule). I can give total payroll "
+                         f"by month instead.", ["T2_CFO_Call.docx"], "High")
     return None
 
 
@@ -57,9 +56,9 @@ def h_worry(con, q, ql):
     rows = con.execute("SELECT * FROM finding ORDER BY severity DESC, id").fetchall()
     top = rows[:5]
     txt = " ".join(f"({i}) {r['title']}." for i, r in enumerate(top, 1))
-    return reply(f"Top things to worry about: {txt} Open the 'What should I worry about' view for detail on all {len(rows)}.",
+    return reply(f"Top things to worry about: {txt} The worry view has all {len(rows)}.",
                  [e for r in top for e in r["evidence"].split("; ")[:1]], "Medium",
-                 ["Ranked by a simple severity score; severity is my judgement, not the data's."])
+                 ["The ranking is my judgement."])
 
 
 def h_payroll_error(con, q, ql):
@@ -70,7 +69,7 @@ def h_payroll_error(con, q, ql):
         return reply("I found no payroll proration errors in the register.", ["Payroll_Register_Jan-Mar_2026.xlsx"], "Medium")
     r = rows[0]
     return reply(f"{r['title']}. {r['detail']}", r["evidence"].split("; "), "High",
-                 ["Amount is an estimate from the register; the Keka payroll module is not in the data room."])
+                 ["The amount is an estimate from the payroll register."])
 
 
 def h_payroll_total(con, q, ql):
@@ -84,8 +83,8 @@ def h_payroll_total(con, q, ql):
         ", ".join(f"{x['txn_date'][:7]} {inr(x['amount'])}" for x in gl)
     return reply(f"Total gross payroll (totals only): register Jan-Mar: {a}. Books (GL) show {b}.",
                  [r["r"] for r in reg] + [x["src_ref"] for x in gl], "High",
-                 ["The GL figure is identical for six months, so it looks copied forward (see worry view).",
-                  "Jan-Mar comes from the old payroll workbook, Apr-Sep from Zoho Books; the systems changed in between."])
+                 ["The books show the same amount six months running, which looks copied forward.",
+                  "Jan-Mar and Apr-Sep come from different systems."])
 
 
 def h_headcount(con, q, ql):
@@ -99,8 +98,7 @@ def h_headcount(con, q, ql):
                  f"By department: {', '.join(f'{r['dept']} {r['n']}' for r in dept)}. "
                  f"The latest board update also says {bd['team']}.",
                  ["Employee_Master.xlsx"] + [bd["src_ref"]], "High",
-                 ["You (and the brief) have described Veloxa as ~180 people; no source supports that. "
-                  "Contractors such as the on-call vendor are not in Keka."])
+                 ["Nothing in the data supports the ~180 mentioned on the call. Contractors aren't in Keka."])
 
 
 def h_arr(con, q, ql):
@@ -111,9 +109,8 @@ def h_arr(con, q, ql):
     return reply(f"ARR per the board updates: {txt}. Growth {rows[0]['arr_cr']} -> {rows[-1]['arr_cr']} Cr "
                  f"({(rows[-1]['arr_cr'] / rows[0]['arr_cr'] - 1) * 100:.0f}% in one quarter).",
                  [r["src_ref"] for r in rows], "Medium",
-                 ["On the kickoff call you said ARR was 'forty-two crore, maybe forty-five' and the CFO said 'forty-eight' "
-                  "at the start of the year. Neither matches the board figure; the CFO's reads most plausibly as Rs 4.8 Cr.",
-                  "Board figures are self-reported; I have no billing data to check them against."])
+                 ["The kickoff call said '42-45 crore'; the board says 6.1 Cr, so I went with the board.",
+                  "Board figures are self-reported; there's no billing data to check them."])
 
 
 def h_burn(con, q, ql):
@@ -122,9 +119,8 @@ def h_burn(con, q, ql):
     rows = con.execute("SELECT * FROM board_update ORDER BY sent_on").fetchall()
     txt = "; ".join(f"{r['period']}: burn Rs {r['burn_lakh']:.0f} L/month, runway {r['runway_months']} months" for r in rows)
     return reply(f"Burn and runway per the board: {txt}.", [r["src_ref"] for r in rows], "Medium",
-                 ["The 'two point two' burn mentioned on the calls cannot be right in lakhs: monthly payroll alone is "
-                  "Rs 31.75 L. Treat it as a mishearing.",
-                  "The GL export covers selected cost centres only, so I cannot rebuild burn from it independently."])
+                 ["The '2.2 lakh' burn on the calls can't be right: payroll alone is Rs 31.75 L a month.",
+                  "The ledger export is partial, so I can't recompute burn myself."])
 
 
 def h_marketing(con, q, ql):
@@ -140,9 +136,8 @@ def h_marketing(con, q, ql):
     return reply(f"Marketing spend in the books: Summit {inr(evt)} across two similarly named vendors ({lines}); "
                  f"Google Ads {inr(ads['s'])} over {ads['n']} months.{per}",
                  [r["src_ref"] for r in ev] + ["GL_Export_Apr-Sep_2026.xlsx"], "Medium",
-                 ["'Sapphire Events Pvt Ltd' and 'Saphire Event Mgmt' may be one vendor; I have not merged them.",
-                  "GL is 'selected cost centres'; sponsorships, travel and people costs may be missing.",
-                  "Nikhil's own figures are not in the data room, so I cannot say whose number is right."])
+                 ["'Sapphire Events' and 'Saphire Event Mgmt' may be the same vendor; I kept them separate.",
+                  "The ledger is partial, and Nikhil's own figures aren't loaded, so I can't say whose total is right."])
 
 
 def h_cloud(con, q, ql):
@@ -153,7 +148,7 @@ def h_cloud(con, q, ql):
     g = (rows[-1]["amount"] / rows[0]["amount"] - 1) * 100
     return reply(f"AWS bills (booked monthly in arrears): {txt}. Up {g:.0f}% from first to last.",
                  [r["src_ref"] for r in rows], "High",
-                 ["I can show the trend but not the cause; no usage breakdown is in the data room."])
+                 ["The cause isn't in the data; there's no usage breakdown."])
 
 
 def h_hiring(con, q, ql):
@@ -161,7 +156,7 @@ def h_hiring(con, q, ql):
         return None
     f = con.execute("SELECT * FROM finding WHERE id='F-HIRE'").fetchone()
     return reply(f"{f['title']}. {f['detail']}", f["evidence"].split("; "), "Medium",
-                 ["I have no Hiring_Tracker yet (not in the Day 1 drop), so open requisitions are unconfirmed."])
+                 ["The hiring tracker isn't loaded yet, so open roles are unconfirmed."])
 
 
 def h_attrition(con, q, ql):
@@ -172,8 +167,7 @@ def h_attrition(con, q, ql):
     return reply(f"Known departures: {txt}. That is {len(rows)} of {con.execute('SELECT COUNT(*) FROM person').fetchone()[0]} "
                  f"people on the Keka export.",
                  [r["src_ref"] for r in rows], "Low",
-                 ["I cannot give an attrition rate: Keka export lists current staff only, so past leavers are invisible. "
-                  "Your view that attrition 'feels high' vs the Head of People's 'normal' cannot be tested yet."])
+                 ["I can't give an attrition rate: the HR export lists current staff only, so past leavers aren't visible."])
 
 
 def h_atlas(con, q, ql):
@@ -181,7 +175,7 @@ def h_atlas(con, q, ql):
         return None
     f = con.execute("SELECT * FROM finding WHERE id='F-ATLAS'").fetchone()
     return reply(f"{f['title']}. {f['detail']}", ["Board_Update_Apr-Jun_2026.pdf", "Board_Update_Jul-Sep_2026.pdf"], "Medium",
-                 ["Jira, git history and the launch kit arrive in later drops; until then I only know what the board and the CEO said."])
+                 ["Jira, git and the launch kit aren't loaded yet; this is only what the board and the call said."])
 
 
 def h_vendor(con, q, ql):
@@ -212,7 +206,7 @@ def h_team(con, q, ql):
         return None
     txt = "; ".join(f"{r['full_name']} - {r['title']}" + (f" ({r['status'].lower()})" if r["status"] != "Active" else "") for r in rows)
     return reply(f"{key} has {len(rows)} people: {txt}.", [r["src_ref"] for r in rows], "High",
-                 ["What each person is actually working on needs Jira, git and email data (Day 3 drop); today I only have roles."])
+                 ["I only have roles so far; what each person works on needs Jira, git and email data."])
 
 
 def h_person(con, q, ql):
@@ -233,7 +227,7 @@ def h_person(con, q, ql):
     if fnds:
         txt += " Related issue: " + "; ".join(f["title"] for f in fnds) + "."
     return reply(txt, [p["src_ref"]] + [m["src_ref"] for m in mails], "High",
-                 ["For a conversation in their own voice, use the interview view; pay is never shown."])
+                 ["To talk to them directly, use the People view."])
 
 
 HANDLERS = [h_privacy, h_worry, h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
@@ -251,11 +245,11 @@ def fallback(con, q):
         for r in con.execute("SELECT subject, src_ref FROM message WHERE lower(body||subject) LIKE ?", (f"%{w}%",)):
             hits.append((r["subject"], r["src_ref"]))
     if not hits:
-        return reply("I don't have a record that answers that. I'd rather say so than guess.", [], "None",
-                     ["Try asking about headcount, ARR, burn, payroll totals, marketing spend, AWS, hiring, Atlas, a person, or 'what should I worry about'."])
+        return reply("I don't have anything on that in the data.", [], "None",
+                     ["Try headcount, ARR, burn, payroll totals, marketing spend, AWS, hiring, Atlas, a person, or 'what should I worry about'."])
     uniq = list(dict.fromkeys(hits))[:4]
     return reply("I can't answer that directly, but these records mention it: " + "; ".join(f"{a} ({b})" for a, b in uniq),
-                 [b for _, b in uniq], "Low", ["Keyword match only; I have not interpreted these."])
+                 [b for _, b in uniq], "Low", ["Keyword match only."])
 
 
 def ask(con, question):

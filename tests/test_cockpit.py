@@ -33,7 +33,7 @@ class CockpitTests(unittest.TestCase):
         for name in ("Meera", "Ananya", "Fatima", "Rahul"):
             r = ask(self.con, f"What is {name}'s salary?")
             self.assertNotRegex(r["answer"], r"\d{5,}", name)
-            self.assertIn("can't show individual pay", r["answer"])
+            self.assertIn("can't share individual pay", r["answer"])
 
     def test_totals_are_allowed_and_cited(self):
         r = ask(self.con, "Total payroll by month")
@@ -43,7 +43,7 @@ class CockpitTests(unittest.TestCase):
     def test_unknown_question_admits_it(self):
         r = ask(self.con, "What is the weather on Mars?")
         self.assertEqual(r["confidence"], "None")
-        self.assertIn("don't have a record", r["answer"])
+        self.assertIn("don't have anything", r["answer"])
 
     def test_every_substantive_answer_cites_sources(self):
         for q in ["What is our ARR?", "burn and runway", "Summit spend", "Why is AWS going up?",
