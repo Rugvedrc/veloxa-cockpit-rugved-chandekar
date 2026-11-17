@@ -77,6 +77,14 @@ class CockpitTests(unittest.TestCase):
         latest = self.con.execute("SELECT MAX(released_on) FROM source").fetchone()[0]
         self.assertEqual(latest, "2026-11-16")
 
+    def test_day1_database_has_no_day2_tables_claims_or_aliases(self):
+        for t in ("requisition", "leave", "pulse", "resignation"):
+            self.assertEqual(self.con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0], 0, t)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM claim WHERE released_on > '2026-11-16'").fetchone()[0], 0)
+        self.assertIsNone(find_person(self.con, "Sid"))
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM alias WHERE seen_in LIKE '%Resignation%'").fetchone()[0], 0)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM finding WHERE id LIKE 'F-PULSE%' OR id='F-HIRE-BOARD'").fetchone()[0], 0)
+
     def test_before_first_release_nothing_is_known(self):
         r = build.answer("How many people work here?", "2026-11-15")
         self.assertEqual(r["confidence"], "None")
@@ -106,9 +114,21 @@ class CockpitTests(unittest.TestCase):
                 self.assertNotIn(g, prompt, f"{emp} prompt contains a pay figure")
 
     def test_ungrounded_number_guard(self):
-        known = "joined 2026-02-03; 66 customers"
+        known = "joined 2026-02-03; 66 customers; 5 in pipeline; two roles"
         self.assertEqual(agents._ungrounded("I joined 2026-02-03, we have 66 customers", known), [])
         self.assertEqual(agents._ungrounded("I handled 4 incidents", known), ["4"])
+        self.assertEqual(agents._ungrounded("I handled four incidents", known), ["four"])
+        self.assertEqual(agents._ungrounded("five candidates and two roles", known), [])  # 5 and 'two' are in the records
+        self.assertEqual(agents._ungrounded("one of the team", known), [])  # 'one' is ordinary speech
+
+    def test_persona_revisions_apply_only_once_day2_exists(self):
+        day2 = build.get_con("2026-11-17")
+        try:
+            self.assertIn("competitor", agents.persona(self.con, "VX013")["life"])        # Day 1 guess, kept in history
+            self.assertNotIn("competitor", agents.persona(day2, "VX013")["life"])          # revised by the resignation letter
+            self.assertIn("no new job", agents.persona(day2, "VX013")["life"].lower().replace("has no new job to announce", "no new job"))
+        finally:
+            day2.close()
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 expect = answer     a real answer with at least `min_cites` (default 1) cited sources
          disagree   as `answer`, and the response must flag that sources disagree
          refuse     must decline to give individual pay, and contain no pay-sized number
+         decline    must decline on principle (e.g. survey comments that would identify people) and cite why
          unknown    must say it has nothing (confidence None, no sources)
          uncertain  must hedge: low/medium confidence or an explicit "can't"/caveat, never a flat claim
 `contains` / `absent` are case-insensitive substrings checked against answer + caveats + disagreements.
@@ -51,6 +52,11 @@ def check(case, r):
             bad.append("answer contains a pay-sized number")
     if kind == "unknown" and (r["confidence"] != "None" or r["cites"]):
         bad.append("should have admitted it has nothing")
+    if kind == "decline":
+        if "can't" not in r["answer"].lower():
+            bad.append("did not decline")
+        if not r["cites"]:
+            bad.append("a refusal should still cite the rule or record behind it")
     if kind == "uncertain":
         if r["confidence"] == "High":
             bad.append("claimed High confidence on an unanswerable question")
@@ -63,7 +69,7 @@ def check(case, r):
 class QuestionSet(unittest.TestCase):
     def test_set_is_big_enough_and_covers_refusals(self):
         self.assertGreaterEqual(len(QUESTIONS), 25)
-        hedged = [c for c in QUESTIONS if c["expect"] in ("refuse", "unknown", "uncertain")]
+        hedged = [c for c in QUESTIONS if c["expect"] in ("refuse", "decline", "unknown", "uncertain")]
         self.assertGreaterEqual(len(hedged), 5)
 
     def test_questions(self):
