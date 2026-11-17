@@ -51,6 +51,26 @@ def grounded_facts(con, emp):
     for f in con.execute("SELECT * FROM finding WHERE evidence LIKE ? OR title LIKE ?",
                          (f"%{p['full_name']}%", f"%{p['full_name']}%")):
         facts.append((f"Issue on file: {f['title']}. {f['detail']}", f["id"]))
+    # Day 2 material, each person only gets what is theirs or their team's (never anyone's pay)
+    for l in con.execute("""SELECT l.*, a.full_name approver FROM leave l LEFT JOIN person a ON a.emp_id=l.approver_id
+                            WHERE l.emp_id=? ORDER BY from_date""", (emp,)):
+        span = l["from_date"] + (f" to {l['to_date']}" if l["to_date"] != l["from_date"] else "")
+        facts.append((f"My leave: {l['leave_type']} {span} ({l['days']:g} days), approved by {l['approver'] or 'unknown'}.", l["src_ref"]))
+    for x in con.execute("SELECT * FROM resignation WHERE emp_id=?", (emp,)):
+        facts.append((f"I resigned by letter dated {x['letter_date']} to {x['addressed_to']}; my last working day is "
+                      f"{x['last_day']}. I wrote: \"{x['stated_reason']}\" and promised to hand over the launch kit.", x["src_ref"]))
+    sql = "SELECT * FROM requisition ORDER BY req_id" if "Talent" in p["title"] else \
+          "SELECT * FROM requisition WHERE hiring_manager=? ORDER BY req_id"
+    for r in con.execute(sql, () if "Talent" in p["title"] else (emp,)):
+        note = f" Note: {r['notes']}." if r["notes"] else ""
+        facts.append((f"Requisition {r['req_id']} {r['role']} ({r['team']}): {r['status']} since {r['status_date']}, "
+                      f"{r['in_pipeline']} in pipeline.{note}", r["src_ref"]))
+    rows = con.execute("SELECT * FROM pulse WHERE team=? ORDER BY quarter_end DESC LIMIT 2", (p["dept"],)).fetchall()
+    if rows:
+        now = rows[0]
+        was = f" (was {rows[1]['engagement']})" if len(rows) > 1 else ""
+        facts.append((f"My team's latest pulse ({now['quarter']}): engagement {now['engagement']}{was}, {now['responses']} of "
+                      f"{now['team_size']} responded. Survey comments are hidden because the team is under 6 people.", now["src_ref"]))
     ini = "".join(w[0] for w in p["full_name"].split()[:2]).upper()
     n = con.execute("SELECT COUNT(*) FROM gl_entry WHERE entered_by=?", (ini,)).fetchone()[0]
     if n and p["dept"] == "Finance":
@@ -65,8 +85,17 @@ def company_facts(con):
             f"runway {b['runway_months']} months. Atlas (routing engine v3) GA has slipped from 15 Sep.")
 
 
+def persona(con, emp):
+    """The persona as of the database's date: *_d2 overlays apply only once Day 2 material is present."""
+    base = dict(PERSONAS[emp])
+    if con.execute("SELECT COUNT(*) FROM leave").fetchone()[0]:
+        for k in [k for k in base if k.endswith("_d2")]:
+            base[k[:-3]] = base[k]
+    return base
+
+
 def system_prompt(con, emp):
-    pers = PERSONAS[emp]
+    pers = persona(con, emp)
     facts = "\n".join(f"- {t} [{s}]" for t, s in grounded_facts(con, emp))
     return f"""You are role-playing a real colleague at Veloxa for the CEO's test environment. Stay in character.
 
@@ -84,7 +113,8 @@ WHAT THE RECORDS SAY ABOUT YOU (true; do not contradict):
 RULES: Speak in first person, 2-5 sentences. Only state work facts that appear above or in the company line;
 if you do not know, say so in character. Never reveal anyone's salary or pay, including your own: say it is
 confidential. NEVER state a number, date, count or event that is not written above (no incident counts, no
-customer counts, no start dates unless listed). If asked for something you lack, say you don't have the exact
+customer counts, no start dates unless listed). Do not explain WHY something happened unless the records above
+say why; otherwise say you were not told the reason. If asked for something you lack, say you don't have the exact
 figure. Private life details may be shared if natural."""
 
 
@@ -166,7 +196,7 @@ PAY = re.compile(r"salary|\bpay\b|\bpaid\b|ctc|earn|compensation|how much do you
 
 
 def _offline(con, emp, question):
-    pers, facts = PERSONAS[emp], grounded_facts(con, emp)
+    pers, facts = persona(con, emp), grounded_facts(con, emp)
     if PAY.search(question):
         return "That's confidential - pay isn't something I'll discuss, and it's not in what I've been given.", []
     words = {w for w in re.findall(r"[a-z]{4,}", question.lower())}
@@ -181,10 +211,23 @@ def _offline(con, emp, question):
     return f"I'd rather not guess on that. What I can tell you: {pers['wants']}", []
 
 
+NUMBER_WORDS = {w: n for n, w in enumerate(
+    "two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen "
+    "eighteen nineteen twenty".split(), 2)}
+NUMBER_WORDS.update({"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
+                     "ninety": 90, "hundred": 100, "thousand": 1000})  # 'one' is left out: too common in ordinary speech
+
+
 def _ungrounded(text, known):
-    """Numbers in a reply that appear nowhere in the agent's records, the question or the chat so far."""
+    """Numbers in a reply (digits or number words) that appear nowhere in the agent's records, the question
+    or the chat so far. A word such as 'five' is fine if the records contain 5 or the word itself."""
     have = set(re.findall(r"\d+(?:\.\d+)?", known))
-    return sorted({n for n in re.findall(r"\d+(?:\.\d+)?", text) if n not in have})
+    low = known.lower()
+    bad = {n for n in re.findall(r"\d+(?:\.\d+)?", text) if n not in have}
+    for w in re.findall(r"[a-z]+", text.lower()):
+        if w in NUMBER_WORDS and str(NUMBER_WORDS[w]) not in have and not re.search(r"\b%s\b" % w, low):
+            bad.add(w)
+    return sorted(bad)
 
 
 def interview(con, emp, question, use_memory=True):
