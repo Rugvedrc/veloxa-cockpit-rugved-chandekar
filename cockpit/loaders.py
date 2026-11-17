@@ -8,7 +8,7 @@ import email.policy
 import email.utils
 import re
 import zipfile
-from datetime import timezone, timedelta
+from datetime import datetime, timezone, timedelta
 
 import openpyxl
 from pypdf import PdfReader
@@ -135,7 +135,68 @@ def load_transcripts(con):
                     (p.stem.split("_")[0], "transcript", body.strip().splitlines()[0], body, p.name))
 
 
+def _people_lookup(con):
+    """('A', 'das') -> emp_id for 'A. Das'-style names; 'VM' -> emp_id for approver initials.
+    Entries that would be ambiguous are dropped rather than guessed."""
+    by_name, by_init = {}, {}
+    for r in con.execute("SELECT emp_id, full_name FROM person"):
+        first, *_, last = r["full_name"].split()
+        for table, key in ((by_name, (first[0].upper(), last.lower())), (by_init, first[0].upper() + last[0].upper())):
+            table[key] = None if key in table else r["emp_id"]
+    return by_name, by_init
+
+
+def load_requisitions(con):
+    for p in files("data_room/hr/Hiring_Tracker.xlsx"):
+        add_source(con, p, "hr", "Keka Hire export")
+        for i, r in _rows(p):
+            con.execute("INSERT INTO requisition VALUES(?,?,?,?,?,?,?,?,?,?)", (
+                r["Req ID"], r["Role"], r["Team"], r["Hiring Manager"], r["Opened"], r["Status"],
+                r["Status Date"], r["In pipeline"], r["Notes"], f"{p.name}!R{i}"))
+
+
+def load_leave(con):
+    by_name, by_init = _people_lookup(con)
+    for p in files("data_room/hr/Leave_Register.xlsx"):
+        add_source(con, p, "hr", "Google Sheet kept by People & Ops; names are initials")
+        for i, r in _rows(p):
+            first, last = r["Employee"].split(". ", 1)
+            con.execute("INSERT INTO leave VALUES(?,?,?,?,?,?,?,?,?)", (
+                by_name.get((first.upper(), last.lower())), r["Employee"], r["Leave Type"], r["From"],
+                r["To"], r["Days"], r["Approved By"], by_init.get(r["Approved By"]), f"{p.name}!R{i}"))
+
+
+def load_pulse(con):
+    for p in files("data_room/hr/Pulse_Survey.xlsx"):
+        add_source(con, p, "hr", "Culture Amp; team level; comments hidden for teams under 6")
+        for i, r in _rows(p):
+            q = r["Quarter"]  # e.g. 'Jul-Sep 2026' -> quarter end 2026-09
+            end = f"{q[-4:]}-{MONTHS[q[4:7]]:02d}"
+            con.execute("INSERT INTO pulse VALUES(?,?,?,?,?,?,?,?)", (
+                q, end, r["Team"], r["Team size"], r["Responses"], r["Engagement (1-5)"], r["Comments"],
+                f"{p.name}!R{i}"))
+
+
+def load_letters(con):
+    for p in files("data_room/documents/Resignation_Letter_*.pdf"):
+        add_source(con, p, "document")
+        t = _pdf_text(p)
+        lines = [l.strip() for l in t.splitlines() if l.strip()]
+        name = lines[0]
+        row = con.execute("SELECT emp_id FROM person WHERE full_name=?", (name,)).fetchone()
+        letter = datetime.strptime(re.search(r"\d{1,2} [A-Za-z]+ \d{4}", t).group(), "%d %B %Y").date()
+        last = datetime.strptime(re.search(r"last working day will be (\d{1,2} [A-Za-z]+ \d{4})", t).group(1), "%d %B %Y").date()
+        to = re.search(r"^To (.+)$", t, re.M).group(1).strip()
+        why = re.search(r"([^.]*looking for[^.]*\.)", re.sub(r"\s+", " ", t))
+        con.execute("INSERT INTO resignation VALUES(?,?,?,?,?,?)", (
+            row["emp_id"] if row else None, letter.isoformat(), last.isoformat(), to,
+            why.group(1).strip() if why else None, p.name))
+        con.execute("INSERT OR REPLACE INTO document VALUES(?,?,?,?,?)",
+                    (p.stem, "letter", p.stem.replace("_", " "), t, p.name))
+
+
 def load_all(con):
-    for fn in (load_employees, load_payroll, load_gl, load_board, load_emails, load_transcripts):
+    for fn in (load_employees, load_payroll, load_gl, load_board, load_emails, load_transcripts,
+               load_requisitions, load_leave, load_pulse, load_letters):
         fn(con)
     con.commit()

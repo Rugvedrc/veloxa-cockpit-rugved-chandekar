@@ -43,9 +43,23 @@ CREATE TABLE document (          -- transcripts, letters, anything free text
 CREATE TABLE claim (             -- curated statements from transcripts, with our verdict
   id TEXT PRIMARY KEY, doc_id TEXT, speaker TEXT, topic TEXT, as_heard TEXT,
   resolved TEXT, verdict TEXT, evidence TEXT, confidence TEXT,
-  disagrees INT);                -- 1 = what was said contradicts the records
+  disagrees INT,                 -- 1 = what was said contradicts the records
+  released_on TEXT,              -- the drop whose material this verdict rests on (point-in-time)
+  revises TEXT);                 -- id of an earlier claim this one corrects or extends
 CREATE TABLE finding (           -- computed data-quality / business issues
-  id TEXT PRIMARY KEY, kind TEXT, severity INT, title TEXT, detail TEXT, evidence TEXT, status TEXT);
+  id TEXT PRIMARY KEY, kind TEXT, severity INT, title TEXT, detail TEXT, evidence TEXT, status TEXT,
+  theme TEXT);                   -- delivery | money | people: groups findings for the top-three view
+CREATE TABLE requisition (       -- Keka Hire tracker
+  req_id TEXT PRIMARY KEY, role TEXT, team TEXT, hiring_manager TEXT, opened TEXT, status TEXT,
+  status_date TEXT, in_pipeline INT, notes TEXT, src_ref TEXT);
+CREATE TABLE leave (             -- People & Ops leave register (names as initials in the source)
+  emp_id TEXT, employee_raw TEXT, leave_type TEXT, from_date TEXT, to_date TEXT, days REAL,
+  approved_by TEXT, approver_id TEXT, src_ref TEXT);
+CREATE TABLE pulse (             -- Culture Amp pulse, team level only (comments hidden if team < 6)
+  quarter TEXT, quarter_end TEXT, team TEXT, team_size INT, responses INT, engagement REAL,
+  comments TEXT, src_ref TEXT);
+CREATE TABLE resignation (
+  emp_id TEXT, letter_date TEXT, last_day TEXT, addressed_to TEXT, stated_reason TEXT, src_ref TEXT);
 """
 
 _override = None
