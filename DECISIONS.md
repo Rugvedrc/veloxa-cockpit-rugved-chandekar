@@ -72,4 +72,23 @@ An LLM persona will happily invent specifics ("4 incidents", "on-call since 22 A
 ## D-14 "Sources disagree" is data, not prose
 `claim.disagrees` marks transcript statements the records contradict. `ask.py` turns them into a `disagreement` list on headcount, ARR and burn answers, and the UI shows a banner. The email requires the cockpit to say so; making it a field means a test can assert it.
 
+## D-15 The top-three screen ranks themes, by a stated rule (response to T6a)
+- **Options:** (a) top three findings by severity, (b) top three themes, (c) an LLM picks.
+- **Chosen:** (b). Findings carry a `theme` (delivery | money | people); `cockpit/worry.py` ranks themes by highest severity, then the CEO's stated main concern (Atlas), then count of findings at severity 2+.
+- **Why:** a flat top three mixes unlike things. My first idea, summing severities, would put "money" first just because it has many small items, so the rule uses the maximum and a tie-break that comes from something the CEO actually said (T1).
+- **Cost:** the severity numbers are my judgement. The screen says so and shows the rule.
+- **Reverse if:** the CEO prefers a different order; the rule is one function.
+
+## D-16 No named individuals as retention risks; leave answered factually, never interpreted
+- The Head of People would not name the engineer she worries about (T3). The leave register shows one person with five September half-days, but a pattern is not intent and the survey rules hide small teams because individuals are identifiable.
+- The cockpit therefore reports retention signals only at team level (Engineering pulse 3.9 -> 3.1, 4 of 5 responded), declines "who will leave?" questions, and answers "show X's leave" with the entries and a note that it does not infer reasons.
+- Survey comments are not shown (every team is under 6; Culture Amp hides them). That is a pushback to the Head of People's request, explained in VOICE_NOTES.md.
+- **Reverse if:** the CEO and HR explicitly decide to share individual-level signals.
+
+## D-17 Everything curated carries a release date
+Claims, aliases and persona text each have a release date; a Day 1 database contains none of Day 2's. Corrections add a new row that `revises` the old one (C28 revises C12) or a `_d2` overlay (personas) instead of editing history. Found when a Day 1 alias row referred to a Day 2 file name.
+
+## D-18 HR data is read as of the 31 Oct export
+The tracker, leave register and survey are all exported 31 Oct 2026, so "still open" means open on that date. Nothing says what happened after.
+
 *Revisions go here, newest first.*

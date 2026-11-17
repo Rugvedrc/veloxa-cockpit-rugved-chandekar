@@ -14,10 +14,12 @@ Veloxa_Hackathon_Release_Packs  (folder or .zip, found at run time, never copied
         v
 data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand by build.py)
    source | person | payroll* | gl_entry | board_update | message | document
-   alias  (every spelling of a person/vendor, with confidence)
-   claim  (curated transcript statements, our verdict, and a `disagrees` flag)  <- data/curated/claims.json
-   finding (computed issues, each with evidence refs)                           <- checks.py
+   requisition | leave | pulse | resignation                                   (Day 2 HR material)
+   alias  (every spelling of a person/vendor, with confidence and release date)
+   claim  (curated transcript statements, our verdict, `disagrees`, `released_on`, `revises`)  <- data/curated/claims.json
+   finding (computed issues, each with evidence refs and a theme)               <- checks.py
         |
+        +--> worry.top_three()   findings -> themes (delivery | money | people) -> ranked top three   [home screen, T6a]
         +--> build.answer(question, as_of) --> ask.py  question -> intent handler -> SQL
         |        -> {answer, cites, confidence, caveats, disagreement}
         +--> agents.py   14 people: facts from the DB + invented personality + optional LLM
@@ -37,7 +39,10 @@ data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand b
 | Conflicts | `claim.disagrees` drives a "sources disagree" banner; `alias` records what was believed | Reasoning is queryable and defensible |
 | Fallback search | Needs >= 2 whole-word keyword matches in one record | A lone common word is not evidence |
 | Privacy | Pay never leaves the database per person; agents never receive it | CFO rule in T2 |
-| Agents | Persona + facts from DB; LLM only if a key exists; replies with numbers not in the records are retried, then dropped | Works offline; stays consistent with the records |
+| Agents | Persona + facts from DB; LLM only if a key exists; replies with numbers (digits or words) not in the records are retried, then dropped; Day 2 persona revisions are overlays applied only once Day 2 exists | Works offline; stays consistent with the records and the date |
+| Top three | Findings carry a theme; themes ranked by max severity, then the CEO's stated concern, then count; rule shown on screen | Answers T6a without mixing unlike things (DECISIONS D-15) |
+| People risk | Team-level only; no named flight risks; survey comments never shown | Small teams are identifiable (DECISIONS D-16) |
+| Release dates | Claims, aliases, persona overlays and findings are all date-gated | A Day 1 database holds nothing from Day 2 (DECISIONS D-17) |
 
 ## Module map
 
@@ -50,18 +55,20 @@ data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand b
 | `cockpit/resolve.py` | Alias tables, claims loader, `find_person` |
 | `cockpit/checks.py` | Computed findings behind the worry view |
 | `cockpit/ask.py` | Intent handlers and fallback search |
+| `cockpit/worry.py` | Top-three themes and the ranking rule |
 | `cockpit/agents.py` | Agent context, LLM providers (NVIDIA, Groq, Anthropic), offline mode, memory |
 | `cockpit/server.py`, `ui.html` | Web UI and JSON API on 127.0.0.1 |
-| `tests/` | 35-question set, behaviour tests, Python 3.9 compatibility guard |
+| `tests/` | 54-question set, behaviour tests for Day 1 and Day 2, Python 3.9 compatibility guard |
 
 ## Not built yet
 
-- Day 2-4 loaders (leave, hiring, pulse, Jira, git, incidents, on-call, resignation letter, invoice, launch kit, email printouts)
-- Responses to voice notes T6a-T6d (T6a due Tue 17 Nov, 11:59 PM IST)
+- Day 3-4 loaders (Jira, git log, incidents, on-call rota, launch kit, invoice, email printouts)
+- Responses to voice notes T6b (Wed 18 Nov), T6c and T6d (Thu 19 Nov); T6a is done (VOICE_NOTES.md)
 - Agent workload and history from Jira / on-call data (Day 3)
 - Living agents (stretch)
 
 ## Change log
 
 - 2026-11-16 (early): initial architecture, Day 1 data only.
+- 2026-11-17: Day 2 data (hiring tracker, leave register, pulse survey, resignation letter, 4 emails, T3, T6a); findings get themes; top-three home screen (T6a); claims, aliases and persona text become release-dated; `ANALYSED_THROUGH` moved to 2026-11-17; 54-question test set.
 - 2026-11-16 (final): data room found at run time (folder or zip); one database per release date with runtime "as of"; "sources disagree" signal; 35-question test set; Python 3.9 compatibility guard; stricter fallback search.

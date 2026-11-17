@@ -32,6 +32,22 @@ Main tasks given to AI, where it was wrong, and what changed. Honest entries onl
 | 18 | "Will Priya quit?" was routed to the attrition handler and listed the one departure as if it were an answer | Wrote the refusal tests | Added a prediction handler that declines and states what is on record |
 | 19 | Conflicts list included a claim (C03) that actually agrees with the records | Read every answer | Limited the list to real mismatches and mishearings |
 
+## 2026-11-17 (Day 2)
+
+**Tasks given to AI:** read the Day 2 material; write loaders for the tracker, leave register, survey and resignation letter; extend findings, claims and agents; build the top-three screen for voice note T6a; write tests and the first drafts of VOICE_NOTES.md and the Day 2 notes.
+
+| # | Mistake | How it was caught | Fix |
+|---|---|---|---|
+| 20 | A Day 1 alias row referred to a Day 2 file ("Resignation letter (Day 2)"): a leak I wrote on Day 1 | Reviewing what an alias table should contain before adding Day 2 aliases | Aliases and claims now carry release dates; added a leakage test |
+| 21 | Wrote Day 2 facts straight into the persona text, so a Day 1 interview would know them | Re-reading the diff | Day 1 text kept as the base, Day 2 text moved to `_d2` overlays applied only when Day 2 data exists |
+| 22 | First idea for ranking themes: sum of severities. It would put "money" first because it has many tiny items | Ran it on the real findings | Rank by maximum severity, tie-break by the CEO's stated main concern |
+| 23 | My own Siddharth persona ("accepted a competitor offer") was contradicted by his letter | Reading the letter | Revised, with the original kept in the history (ASSUMPTIONS) |
+| 24 | A finding said "nobody was lined up" for the backfill while the tracker shows 7 candidates | Re-reading the finding text | Reworded to "no successor was in place" |
+| 25 | The pulse caveat hard-coded "3.9 to 3.1" instead of computing it | Reading the handler | Computed from the rows |
+| 26 | Draft of the CEO response said the launch kit was "only handed over on paper" and that payroll was "never corrected": neither is in the records | Checking each sentence against a source | Reworded to what the records say |
+| 27 | A live agent (Rohan) invented a reason for the hiring pause ("until Atlas ships") | Live test | Prompt rule not to explain causes unless the records do; guard extended to number words |
+| 28 | A test forbade the word "reason" but my own caveat ("I don't infer reasons") contains it; another test mislabelled a principled refusal as "uncertain" | Test failures | Fixed the expectations and added a separate "decline" category |
+
 **Things I decided myself, not the AI**
 - Which source to believe when they conflict: each entry in TRANSCRIPT_NOTES.md was reviewed by me; the AI proposed, I accepted or changed. (To be filled in with my own reasoning where I disagreed.)
 

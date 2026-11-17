@@ -82,6 +82,21 @@ Source: Employee_Master.xlsx, board updates. Confidence: High. Would change my m
 **A-21** | 2026-11-16 | Answers for "as of" dates after the last modelled drop come from the Day 1 snapshot (flagged in the answer) rather than from partially loaded later files.
 Source: own design (DECISIONS D-13). Confidence: High. Revisit when Day 2 is modelled.
 
+**A-22** | 2026-11-17 | Leave-register names ("P. Nair") are matched to Keka by first initial + surname, and approver codes ("VM") by name initials. Ambiguous matches would be dropped, not guessed.
+Source: Leave_Register.xlsx. Confidence: High (all 19 rows and all approvers matched uniquely). Would change my mind: a new hire sharing initials.
+
+**A-23** | 2026-11-17 | "Not shown: team smaller than 6" on every pulse row is Culture Amp's privacy rule, so comments are not missing data and must not be reconstructed.
+Source: Pulse_Survey.xlsx Comments column; T3. Confidence: High.
+
+**A-24** | 2026-11-17 | The tracker, leave register and survey are as of the 31 Oct export; "open" means open on that date.
+Source: file titles ("Exported 31-Oct-2026"). Confidence: High.
+
+**A-25** | 2026-11-17 | Siddharth's stated reason ("clearer launch timelines") is his reason in his own words, not a verified cause; the letter names no new employer.
+Source: Resignation_Letter_SM.pdf. Confidence: High that it is what he wrote.
+
+**A-26** | 2026-11-17 | Priya Nair's five September half-days are not interpreted as anything. They are shown as leave entries only.
+Source: Leave_Register.xlsx R14-R18. Confidence: n/a (deliberate non-inference, DECISIONS D-16).
+
 ## Invented private lives (the data is silent here)
 
 All of these are fiction from data/curated/personas.json. Work facts always come from the data, never from this file. Each should be revised the moment a source contradicts it.
@@ -102,5 +117,19 @@ All of these are fiction from data/curated/personas.json. Work facts always come
 | A-P06 | Nikhil Bose | 37, partner Tara, restaurants, defensive about numbers | Defensive: T2 hint (Low). Rest None | His call transcript (Day 3) |
 | A-P11 | Aisha Khan | 30, two rescue dogs, sourdough | None | none |
 | A-P13 | Siddharth Mehta | 28, **has accepted a competitor offer**, starts December | Leaving: High (Keka). Competitor/offer: None | Resignation_Letter_SM (Day 2) |
+
+## Revisions (the entries above are kept as written)
+
+**REVISED 2026-11-17 - A-P13 Siddharth Mehta.** I had invented that he "accepted a competitor offer, starting December". His letter says he is "looking for a role" and names no employer. Now: no offer; a couple of unsigned conversations. Day 1 wording stays in the Day 1 persona; the revised text is the `_d2` overlay.
+
+**REVISED 2026-11-17 - A-P07 Priya Nair.** Day 1: "has an unanswered recruiter message". The leave register then showed five September afternoons off. I gave those an innocent invented reason (her father's physiotherapy, which she does not volunteer) and softened the recruiter line to weekly messages she ignores. Both are fiction; neither is evidence of anything (A-26).
+
+**REVISED 2026-11-17 - A-P14 Fatima Sheikh.** The wedding is now confirmed: 15 days of marriage leave, 9-27 Feb. Confidence raised from Medium to High.
+
+**REVISED 2026-11-17 - A-09 "Vicky" = Vikram Menon.** Raised from Low to Medium: the "freeze" T2 says to check with Vicky is the pause of REQ-014/015 agreed between Meera and Vikram on 12 Aug. Still no source calls him Vicky. Both alias rows are kept.
+
+**REVISED 2026-11-17 - A-13 backend roles unfilled.** Confirmed by Hiring_Tracker (REQ-014/015 on hold since 12 Aug, 8 candidates, final round cancelled 14 Aug) and emails 06/07. High.
+
+**REVISED 2026-11-17 - A-P09 Arjun Das, A-P15 Rohan Banerjee, A-P04 Vikram Menon.** Persona text extended with Day 2 facts (remote request 18 Sep; relocation leave = the move to Pune; eight candidates waiting; "we'll absorb it"). Still fiction where it goes beyond the records.
 
 *Revisions go here, newest first.*

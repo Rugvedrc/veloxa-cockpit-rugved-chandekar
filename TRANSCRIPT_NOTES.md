@@ -56,4 +56,41 @@ Rule used throughout: **system exports beat transcripts for facts; transcripts b
 - Jan payroll has 18 rows, Feb-Mar 19: correct, Rahul joined 3 Feb.
 - Employee_Master has no leavers: not an error, Keka exports active records.
 
+## Day 2 additions (released Tue 17 Nov)
+
+### T3 - Head of People call (Deepa J., Ananya R., Rohan) - audio quality good
+
+| # | Heard | Concluded | Evidence | Conf. |
+|---|---|---|---|---|
+| T3-1 | Attrition "about twelve, which is normal for Bangalore" (percentage, headcount or target unclear) | Untestable. 12 people is impossible; 12% is about 2 a year; the HR export has no leavers. One departure is known. | Employee_Master; resignation letter | Low |
+| T3-2 | "twenty-two open roles in April", "we lost six of them in August" (Rohan) | Wrong for this company. The tracker has 6 requisitions in total; 2 went on hold in August. "Twenty-two" may be "two". Tracker wins. | Hiring_Tracker R4-R9 | High |
+| T3-3 | Offer acceptance "down to fifty-something" | No offer data exists. Not used. | Hiring_Tracker | Low |
+| T3-4 | "Liver", "Kekka", "Cult Amp" | Keka Hire, Keka, Culture Amp | Tracker title row; README | Medium |
+| T3-5 | Engineering scores "dipped in the July round" | Confirmed: 3.9 -> 3.1, 4 of 5 responded. Biggest drop of any team. | Pulse_Survey; email 11 | High |
+| T3-6 | "Lakshmi as HRBP, she handles exits" | Keka title is HR & Office Executive; the letter went to Siddharth's manager. Informal description; Keka title kept. | Employee_Master R20; letter | Low |
+| T3-7 | "Sid from marketing has put in his papers" | Siddharth Mehta, letter 15 Sep, last day 31 Oct | Resignation_Letter_SM | High |
+| T3-8 | "one engineer I'm worried about" (not named) | Left unnamed on purpose (DECISIONS D-16) | T3 | n/a |
+| T3-9 | Manager training "November-ish" vs Rohan "January" | Unresolved; both reported | none | Low |
+| T3-10 | Wants the CEO to "see survey comments directly" | Not possible: comments are hidden for every team (all under 6). Not worked around. | Pulse_Survey Comments column | High |
+
+### T6a - CEO voice note
+"When I open it, it should just tell me what to worry about. Top three." Handled as a requirement, not a fact to reconcile; response in VOICE_NOTES.md.
+
+### Revisions to Day 1 rows (the originals above are kept)
+- **T2-9 / T2-11 ("the two backend roles", "check the freeze with Vicky").** Now confirmed by the tracker and emails 06 and 07: REQ-014 and REQ-015, on hold since 12 Aug on the CFO's burn decision, VP Engineering replying "We'll absorb it". That is the freeze T2 said to check "with Vicky", so "Vicky" is more likely Vikram Menon (Low -> Medium).
+- **T1-9 (attrition).** Still untestable, now with a date: the one known departure resigned on 15 Sep.
+- **T2-8 (Fatima's wedding).** Confirmed by the leave register: 15 days of marriage leave, 9-27 Feb, which also explains who ran February payroll.
+
+### New contradictions between written sources
+| # | What disagrees | What I did |
+|---|---|---|
+| S-6 | Q3 board update: "Hiring is paused" vs tracker: only 2 roles on hold, 2 opened since (REQ-016, REQ-017) | Believed the tracker. Reported as a finding. |
+| S-7 | Q2 board "two backend engineers this quarter" vs tracker: both opened 18 May and on hold from 12 Aug | Consistent; the plan was frozen, not abandoned. |
+| S-8 | Resignation letter date (15 Sep) equals the Atlas GA date in the Q2 board update | Reported as a fact; no causal claim beyond the letter's own stated reason. |
+
+### Things that look like mistakes but may not be
+- The leave register uses initials ("P. Nair") and approver codes ("VM"); matched by first initial + surname and by name initials. Unmatched would be reported, not guessed (none were).
+- Pulse "Comments: Not shown: team smaller than 6" on every row is a privacy rule, not missing data.
+- Priya Nair has five half-day PM leaves in September. Not interpreted (D-16).
+
 *Revisions go here, newest first.*

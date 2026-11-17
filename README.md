@@ -1,6 +1,6 @@
 # Veloxa CXO Cockpit
 
-Ask one question about Veloxa and get a short answer that cites the records behind it, states a confidence level, and says so when the sources disagree or the data is silent. It also has a ranked "what should I worry about" view, an "as of date" selector (what did we know on date X), and 14 colleagues you can interview.
+Open it and it tells you the **top three things to worry about**, no typing. Ask a question and you get a short answer that cites the records behind it, states a confidence level, and says so when the sources disagree or the data is silent. There is also an "as of date" selector (what did we know on date X) and 14 colleagues you can interview.
 
 Veloxa is a synthetic company created for the Hiyaku Systems hackathon; all data is fictional.
 
@@ -20,14 +20,15 @@ On macOS/Linux use `python3`. It creates `.venv`, installs two dependencies (`op
 .venv\Scripts\python cockpit.py serve          # Windows; macOS/Linux: .venv/bin/python
 ```
 
-then open http://127.0.0.1:8765 . Tabs: **Ask**, **What should I worry about**, **People** (interview any of the 14), **Conflicts in the sources**. The "What we knew as of" selector re-answers everything using only material released by that date.
+then open http://127.0.0.1:8765 . It opens on **Top 3 to worry about**. Other tabs: **Ask**, **All findings**, **People** (interview any of the 14), **Conflicts in the sources**. The "What we knew as of" selector re-answers everything using only material released by that date.
 
 Command line:
 
 ```
 python cockpit.py ask "how many people work here?"
 python cockpit.py ask "what is our ARR?" --as-of 2026-11-15     # before any release -> nothing known
-python cockpit.py worry
+python cockpit.py top3                                          # the three things to worry about
+python cockpit.py worry                                         # all findings
 python cockpit.py interview VX007 "what keeps you up at night?"
 python cockpit.py build [--data PATH] [--as-of DATE]            # rebuild databases
 ```
@@ -38,7 +39,7 @@ python cockpit.py build [--data PATH] [--as-of DATE]            # rebuild databa
 python cockpit.py test            # same as: python -m unittest discover tests
 ```
 
-`tests/questions.json` holds 35 question/answer checks (answers with sources, "sources disagree", refusals to give individual pay, "I don't know", point-in-time). `tests/test_cockpit.py` checks the data model, findings, release-date gating and the agents; `tests/test_compat.py` guards Python 3.9 compatibility. Tests never call an LLM.
+`tests/questions.json` holds 54 question/answer checks (answers with sources, "sources disagree", refusals to give individual pay, declining to name people as flight risks, "I don't know", point-in-time cases that must not leak later material). `tests/test_cockpit.py` checks the data model, findings, release-date gating and the agents; `tests/test_day2.py` checks the Day 2 loaders, findings, the top-three screen and claim revisions; `tests/test_compat.py` guards Python 3.9 compatibility. Tests never call an LLM.
 
 ## Agents and AI
 
@@ -58,10 +59,12 @@ The cockpit itself does not use an LLM: answers are assembled from SQL so every 
 | `cockpit/resolve.py` | Aliases for people and vendors; curated transcript claims |
 | `cockpit/checks.py` | Computed findings behind the worry view |
 | `cockpit/ask.py` | Answer engine: question -> SQL -> answer, sources, confidence, caveats |
+| `cockpit/worry.py` | The top-three screen: groups findings into themes and ranks them by a stated rule |
 | `cockpit/agents.py` | The 14 agents |
 | `cockpit/server.py`, `ui.html` | Web UI and JSON API (127.0.0.1 only) |
 | `data/curated/` | Hand-written inputs: transcript claims, invented personas |
 | `ARCHITECTURE.md`, `ASSUMPTIONS.md`, `TRANSCRIPT_NOTES.md`, `DECISIONS.md`, `AI_LOG.md` | The reasoning log |
+| `VOICE_NOTES.md` | Written response to each CEO voice note (T6a so far) |
 
 ## Privacy
 
@@ -69,4 +72,4 @@ Individual salaries are stored (payroll register) but no answer or agent exposes
 
 ## Status
 
-Day 1 data (Mon 16 Nov) is loaded, reconciled and analysed. Later drops are added day by day; until a day's data is modelled, later "as of" dates are answered from the latest modelled snapshot and say so.
+Day 1 (Mon 16 Nov) and Day 2 (Tue 17 Nov) data are loaded, reconciled and analysed. Later drops are added day by day; until a day's data is modelled, later "as of" dates are answered from the latest modelled snapshot and say so.
