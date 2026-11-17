@@ -8,6 +8,7 @@ import re
 from collections import defaultdict
 
 from .resolve import find_person
+from .worry import top_three
 
 
 def inr(x):
@@ -59,28 +60,40 @@ def h_privacy(con, q, ql):
 
 
 def h_prediction(con, q, ql):
-    """'Will X quit?' is a forecast about a person; the data can't support one."""
-    if not re.search(r"\bwill\b.*\b(quit|leave|resign)|going to (quit|leave|resign)|about to (quit|leave|resign)", ql):
+    """Forecasts about people ('will X quit?', 'who is a flight risk?') can't be supported by this data."""
+    named = re.search(r"\bwill\b.*\b(quit|leave|resign)|going to (quit|leave|resign)|about to (quit|leave|resign)", ql)
+    generic = re.search(r"flight risk|likely to (quit|leave|resign)|who (might|may|could) (quit|leave|resign)|"
+                        r"at risk of (leaving|quitting)|next to (leave|quit|resign)|worried about.*(engineer|person|employee)", ql)
+    if not (named or generic):
         return None
     emp = find_person(con, q)
     gone = con.execute("SELECT full_name, exit_date, src_ref FROM person WHERE status != 'Active'").fetchall()
     who = con.execute("SELECT full_name FROM person WHERE emp_id=?", (emp,)).fetchone() if emp else None
     known = "; ".join("%s (last day %s)" % (g["full_name"], g["exit_date"]) for g in gone) or "none"
-    about = f"nothing in the data says {who['full_name']} is leaving" if who else "nothing in the data points to anyone else leaving"
-    return reply(f"I can't predict that. On record, departures are: {known}; {about}.",
-                 [g["src_ref"] for g in gone] or ["Employee_Master.xlsx"], "Low",
-                 ["Forecasting individual exits would need engagement and attrition data that isn't loaded."])
+    if who:
+        return reply(f"I can't predict that. On record, departures are: {known}; nothing in the data says "
+                     f"{who['full_name']} is leaving.", [g["src_ref"] for g in gone] or ["Employee_Master.xlsx"], "Low",
+                     ["Forecasting individual exits would need engagement and attrition data that isn't loaded."])
+    drops = con.execute("""SELECT a.team, a.engagement now, b.engagement before, a.src_ref FROM pulse a
+                           JOIN pulse b ON a.team=b.team AND b.quarter_end < a.quarter_end
+                           WHERE a.quarter_end=(SELECT MAX(quarter_end) FROM pulse)
+                           AND b.quarter_end=(SELECT MAX(quarter_end) FROM pulse p WHERE p.team=a.team AND p.quarter_end < a.quarter_end)
+                           ORDER BY (b.engagement - a.engagement) DESC LIMIT 1""").fetchall()
+    signal = (f" The only signal I will give is at team level: {drops[0]['team']} engagement went "
+              f"{drops[0]['before']} -> {drops[0]['now']} last quarter.") if drops else ""
+    return reply(f"I can't name who might leave. Departures on record: {known}.{signal}",
+                 [g["src_ref"] for g in gone] + ([drops[0]["src_ref"]] if drops else []), "Low",
+                 ["Naming individuals from leave or survey patterns would be guesswork about a person, so I don't."])
 
 
 def h_worry(con, q, ql):
-    if not re.search(r"worry|worried|risk|concern|problem|stuck|wrong|issue|attention|red flag|trouble", ql):
+    if not re.search(r"worry|worried|risk|concern|problem|stuck|wrong|issue|attention|red flag|trouble|top (three|3)", ql):
         return None
-    rows = con.execute("SELECT * FROM finding ORDER BY severity DESC, id").fetchall()
-    top = rows[:5]
-    txt = " ".join(f"({i}) {r['title']}." for i, r in enumerate(top, 1))
-    return reply(f"Top things to worry about: {txt} The worry view has all {len(rows)}.",
-                 [e for r in top for e in r["evidence"].split("; ")[:1]], "Medium",
-                 ["The ranking is my judgement."])
+    t = top_three(con)
+    txt = " ".join(f"({x['rank']}) {x['label']}: {x['headline']}." for x in t["themes"])
+    cites = [e for x in t["themes"] for e in x["evidence"][:2]]
+    return reply(f"Top three things to worry about: {txt} The worry view has the detail and all {t['total_findings']} findings.",
+                 cites, "Medium", ["The ranking rule is in the worry view; severity is my judgement."])
 
 
 def h_payroll_error(con, q, ql):
@@ -182,20 +195,121 @@ def h_cloud(con, q, ql):
 def h_hiring(con, q, ql):
     if not re.search(r"hiring|backend|recruit|open role|freeze|headcount plan|vacanc", ql):
         return None
-    f = con.execute("SELECT * FROM finding WHERE id='F-HIRE'").fetchone()
-    return reply(f"{f['title']}. {f['detail']}", f["evidence"].split("; "), "Medium",
-                 ["The hiring tracker isn't loaded yet, so open roles are unconfirmed."])
+    reqs = con.execute("SELECT * FROM requisition ORDER BY req_id").fetchall()
+    if not reqs:  # Day 1: no tracker yet
+        f = con.execute("SELECT * FROM finding WHERE id='F-HIRE'").fetchone()
+        return reply(f"{f['title']}. {f['detail']}", f["evidence"].split("; "), "Medium",
+                     ["The hiring tracker isn't loaded yet, so open roles are unconfirmed."])
+
+    def line(status, label):
+        rs = [r for r in reqs if r["status"] == status]
+        if not rs:
+            return None
+        txt = "; ".join(f"{r['req_id']} {r['role']} ({r['team']}, {r['in_pipeline']} in pipeline)" for r in rs)
+        return f"{label}: {txt}"
+    held = [r for r in reqs if r["status"] == "On hold"]
+    parts = [line("Open", "Open"),
+             line("On hold", f"On hold since {held[0]['status_date']}") if held else None,
+             line("Filled", "Filled"), line("Closed - not hired", "Closed")]
+    opened = [r for r in reqs if r["status"] == "Open"]
+    lead = (f"Partly. {len(held)} roles are on hold and {len(opened)} are open. " if re.search(r"paus|freeze|frozen", ql) and held else "")
+    return reply(lead + "Hiring tracker (31 Oct export): " + ". ".join(p for p in parts if p) + ".",
+                 [r["src_ref"] for r in reqs], "High",
+                 ["The two backend roles were paused by the CFO on 12 Aug 'until the round closes'.",
+                  "Candidate counts are the tracker's; there is no offer or acceptance data."],
+                 disagreements(con, "hiring"))
 
 
 def h_attrition(con, q, ql):
     if not re.search(r"attrition|resign|leaving|notice|exit|quit|churn", ql):
         return None
     rows = con.execute("SELECT * FROM person WHERE status != 'Active'").fetchall()
-    txt = "; ".join(f"{r['full_name']} ({r['title']}) leaving {r['exit_date']}" for r in rows)
-    return reply(f"Known departures: {txt}. That is {len(rows)} of {con.execute('SELECT COUNT(*) FROM person').fetchone()[0]} "
-                 f"people on the Keka export.",
-                 [r["src_ref"] for r in rows], "Low",
-                 ["I can't give an attrition rate: the HR export lists current staff only, so past leavers aren't visible."])
+    n = con.execute("SELECT COUNT(*) FROM person").fetchone()[0]
+    res = {r["emp_id"]: r for r in con.execute("SELECT * FROM resignation")}
+    emp = find_person(con, q)
+    if res and re.search(r"\bwhy\b|reason", ql) and (emp in res or (emp is None and len(res) == 1)):
+        x = res[emp] if emp in res else next(iter(res.values()))
+        p = con.execute("SELECT full_name FROM person WHERE emp_id=?", (x["emp_id"],)).fetchone()
+        return reply(f"{p['full_name']}'s letter of {x['letter_date']} to {x['addressed_to']} says: \"{x['stated_reason']}\" "
+                     f"Last working day {x['last_day']}. It names no new job.",
+                     [x["src_ref"]], "High",
+                     ["That is the stated reason only; there is no exit-interview record, and the Head of People said on the call "
+                      "that most exit interviews cite workload."])
+    parts = []
+    for r in rows:
+        s = f"{r['full_name']} ({r['title']}) leaving {r['exit_date']}"
+        if r["emp_id"] in res:
+            x = res[r["emp_id"]]
+            s += f"; letter dated {x['letter_date']}, stated reason: '{x['stated_reason']}' (no new employer is mentioned)"
+        parts.append(s)
+    cites = [r["src_ref"] for r in rows] + [x["src_ref"] for x in res.values()]
+    caveats = ["I can't give an attrition rate: the HR export lists current staff only, so past leavers aren't visible."]
+    if con.execute("SELECT 1 FROM claim WHERE id='C17'").fetchone():
+        caveats.append("The Head of People called attrition 'about twelve' without a unit, so it can't be tested.")
+    return reply(f"Known departures: {'; '.join(parts)}. That is {len(rows)} of {n} people on the Keka export.",
+                 cites, "Low", caveats)
+
+
+def h_pulse(con, q, ql):
+    if not re.search(r"pulse|engagement|morale|survey|culture amp|sentiment|satisfaction", ql):
+        return None
+    rows = con.execute("SELECT * FROM pulse ORDER BY quarter_end, team").fetchall()
+    if not rows:
+        return None  # not released yet -> falls through to 'I don't have anything'
+    latest = max(r["quarter_end"] for r in rows)
+    now = [r for r in rows if r["quarter_end"] == latest]
+    if "comment" in ql:
+        return reply("I can't show survey comments. Culture Amp hides them for teams under 6 people and every Veloxa "
+                     "team is under 6 (the largest, Engineering, has 5), so comments would identify people. "
+                     "I can show scores by team.", [r["src_ref"] for r in now[:2]], "High",
+                     ["The Head of People asked for the CEO to see comments; that is a decision for her, not something I work around."])
+    m = re.search(r"\b(engineering|finance|marketing|people|sales|support)\b", ql)
+    if m:
+        team = {"people": "People & Ops"}.get(m.group(1), m.group(1).title())
+        now = [r for r in now if r["team"] == team]
+    history = defaultdict(list)
+    for r in rows:
+        history[r["team"]].append(r)  # rows are ordered by quarter_end
+    out, drops = [], []
+    for r in now:
+        prev = history[r["team"]][-2] if len(history[r["team"]]) > 1 else None
+        out.append(f"{r['team']} {r['engagement']}" + (f" (was {prev['engagement']})" if prev else "") +
+                   f", {r['responses']} of {r['team_size']} responded")
+        if prev:
+            drops.append((prev["engagement"] - r["engagement"], r, prev))
+    caveats = ["Scores are by team only; comments are hidden for teams under 6."]
+    if len(now) > 1 and drops:
+        d, r, prev = max(drops, key=lambda x: x[0])
+        if d > 0:
+            caveats.append(f"{r['team']} fell the most ({prev['engagement']} to {r['engagement']}).")
+    return reply(f"Engagement by team, {now[0]['quarter']} (scale 1-5): " + "; ".join(out) + ".",
+                 [r["src_ref"] for r in now], "High", caveats)
+
+
+def h_leave(con, q, ql):
+    if not re.search(r"\bleave\b|time off|vacation|holiday|half.?day|days off|absent|out of office", ql):
+        return None
+    rows = con.execute("SELECT * FROM leave").fetchall()
+    if not rows:
+        return None
+    emp = find_person(con, q)
+    if emp:
+        mine = [r for r in rows if r["emp_id"] == emp]
+        p = con.execute("SELECT full_name FROM person WHERE emp_id=?", (emp,)).fetchone()
+        if not mine:
+            return reply(f"No leave is recorded for {p['full_name']} between Nov 2025 and Oct 2026.", ["Leave_Register.xlsx"], "Medium",
+                         ["Leave register only; it is kept by hand in a Google Sheet."])
+        txt = "; ".join(f"{r['leave_type']} {r['from_date']}" + (f" to {r['to_date']}" if r["to_date"] != r["from_date"] else "") + f" ({r['days']:g} d)"
+                        for r in mine)
+        return reply(f"{p['full_name']}: {txt}. Total {sum(r['days'] for r in mine):g} days.",
+                     [r["src_ref"] for r in mine], "High",
+                     ["This is the register only; I don't infer reasons from it.", "The register is kept by hand in a Google Sheet, not in Keka."])
+    by = defaultdict(float)
+    for r in rows:
+        by[r["leave_type"].split(" (")[0]] += r["days"]
+    txt = ", ".join(f"{k} {v:g}" for k, v in sorted(by.items(), key=lambda kv: -kv[1]))
+    return reply(f"Leave register, Nov 2025 to Oct 2026: {len(rows)} entries, {sum(by.values()):g} days. By type (days): {txt}.",
+                 ["Leave_Register.xlsx"], "High", ["Ask about a named person for their entries; I don't infer reasons or patterns."])
 
 
 def h_atlas(con, q, ql):
@@ -217,7 +331,7 @@ def h_vendor(con, q, ql):
 def h_conflicts(con, q, ql):
     if not re.search(r"conflict|contradict|disagree|which (number|source)|trust|misheard|inconsisten", ql):
         return None
-    rows = con.execute("SELECT * FROM claim WHERE disagrees=1 OR topic IN ('tools','people') ORDER BY id").fetchall()
+    rows = con.execute("SELECT * FROM claim WHERE disagrees=1 OR topic IN ('tools','people') ORDER BY disagrees DESC, id").fetchall()
     txt = " ".join(f"[{r['id']}] Heard: {r['as_heard']} -> {r['resolved']}." for r in rows[:6])
     return reply(f"Where what people said disagrees with the records: {txt}",
                  [f"claim {r['id']} ({r['evidence']})" for r in rows[:6]], "Medium",
@@ -259,7 +373,7 @@ def h_person(con, q, ql):
 
 
 HANDLERS = [h_privacy, h_prediction, h_worry, h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
-            h_cloud, h_hiring, h_attrition, h_atlas, h_vendor, h_conflicts, h_team, h_person]
+            h_cloud, h_hiring, h_attrition, h_pulse, h_leave, h_atlas, h_vendor, h_conflicts, h_team, h_person]
 
 
 def fallback(con, q):

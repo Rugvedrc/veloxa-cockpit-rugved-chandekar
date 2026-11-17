@@ -20,10 +20,11 @@ form button{padding:10px 16px;border:0;border-radius:6px;background:var(--acc);c
 header label{margin-left:auto;display:flex;gap:6px;align-items:center}
 </style></head><body>
 <header><h1>Veloxa CXO Cockpit</h1>
-<nav><button data-t="ask" class="on">Ask</button><button data-t="worry">What should I worry about</button><button data-t="people">People</button><button data-t="conf">Conflicts in the sources</button></nav>
+<nav><button data-t="top" class="on">Top 3 to worry about</button><button data-t="ask">Ask</button><button data-t="worry">All findings</button><button data-t="people">People</button><button data-t="conf">Conflicts in the sources</button></nav>
 <label class="mute">What we knew as of <select id="asof" style="flex:none;padding:6px"><option value="">latest</option><option value="2026-11-15">15 Nov (before any release)</option><option value="2026-11-16">16 Nov (Day 1)</option><option value="2026-11-17">17 Nov (Day 2)</option><option value="2026-11-18">18 Nov (Day 3)</option><option value="2026-11-19">19 Nov (Day 4)</option></select></label></header>
 <main>
-<section id="ask"><form id="f"><input id="q" placeholder="Ask anything about the company..." autofocus><button>Ask</button></form>
+<section id="top"></section>
+<section id="ask" class="hidden"><form id="f"><input id="q" placeholder="Ask anything about the company..."><button>Ask</button></form>
 <div class="chips" id="chips"></div><div id="log"></div></section>
 <section id="worry" class="hidden"></section>
 <section id="people" class="hidden"><select id="who"></select><div id="bio" class="mute" style="margin:8px 0"></div>
@@ -36,13 +37,25 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('main section').forEach(s=>s.classList.toggle('hidden',s.id!==b.dataset.t));
-  if(b.dataset.t==='worry')loadWorry();if(b.dataset.t==='conf')loadConf();if(b.dataset.t==='people')loadPeople();});
+  if(b.dataset.t==='top')loadTop();if(b.dataset.t==='worry')loadWorry();if(b.dataset.t==='conf')loadConf();if(b.dataset.t==='people')loadPeople();});
 const SUG=["How many people work here?","What is our ARR?","What should I worry about?","What is our burn and runway?","How much have we spent on the Summit?","Why is AWS going up?","Are there any payroll errors?","Total payroll by month","Who is Rahul?","What is the status of Atlas?","How much does Meera earn?"];
 SUG.forEach(s=>{const b=el('button','',s);b.onclick=()=>{$('#q').value=s;$('#f').requestSubmit()};$('#chips').appendChild(b)});
 const asof=()=>$('#asof').value;
 const qs=()=>asof()?'?as_of='+encodeURIComponent(asof()):'';
 async function post(u,b){return (await fetch(u,{method:'POST',body:JSON.stringify({...b,as_of:asof()})})).json()}
-$('#asof').onchange=()=>{people=[];$('#who').replaceChildren();const t=document.querySelector('nav button.on').dataset.t;if(t==='worry')loadWorry();if(t==='conf')loadConf();if(t==='people')loadPeople()};
+$('#asof').onchange=()=>{people=[];$('#who').replaceChildren();const t=document.querySelector('nav button.on').dataset.t;if(t==='top')loadTop();if(t==='worry')loadWorry();if(t==='conf')loadConf();if(t==='people')loadPeople()};
+async function loadTop(){const d=await (await fetch('/api/top3'+qs())).json();const s=$('#top');s.replaceChildren();
+  if(!d.themes.length){s.append(el('div','card','Nothing had been released by this date.'));return}
+  s.append(el('div','mute','The three things to worry about, most urgent first. No typing needed.'));
+  d.themes.forEach(x=>{const c=el('div','card');
+    const h=el('div','q s'+x.severity,x.rank+'. '+x.label);h.append(el('span','pill',x.severity_label));
+    c.append(h,el('div','',x.headline),el('div','mute',x.detail));
+    if(x.also.length){const u=el('ul');x.also.forEach(a=>u.append(el('li','',a.title)));c.append(el('div','mute','Also in this theme:'),u)}
+    if(x.fyi_count)c.append(el('div','mute','Plus '+x.fyi_count+' minor item'+(x.fyi_count>1?'s':'')+' in All findings.'));
+    if(x.suggested_owner)c.append(el('div','mute','Suggested owner (by role): '+x.suggested_owner));
+    if(x.evidence.length){const u=el('ul','mute');x.evidence.forEach(e=>u.append(el('li','',e.replace('!R',' row '))));c.append(el('div','mute','Evidence:'),u)}
+    s.append(c)});
+  s.append(el('div','mute','How this is ranked: '+d.rule+' All '+d.total_findings+' findings are under "All findings".'))}
 $('#f').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.trim();if(!q)return;$('#q').value='';
   const r=await post('/api/ask',{q});const c=el('div','card');c.append(el('div','q',q),el('div','',r.answer));
   if(r.disagreement&&r.disagreement.length){const d=el('div','dis');d.append(el('b','','The sources disagree'));const u=el('ul');r.disagreement.forEach(x=>u.append(el('li','',x)));d.append(u);c.append(d)}
@@ -58,6 +71,7 @@ async function loadConf(){const d=await (await fetch('/api/claims'+qs())).json()
   if(!d.length)s.append(el('div','card','Nothing had been released by this date.'));
   d.forEach(x=>{const c=el('div','card');c.append(el('div','q',x.id+' - '+x.topic+' ('+x.doc_id+', confidence '+x.confidence+')'),el('div','mute','Heard: '+x.as_heard),el('div','','Resolved: '+x.resolved),el('div','',x.verdict),el('div','mute','Evidence: '+x.evidence));s.append(c)})}
 let people=[];
+loadTop();
 async function loadPeople(){if(people.length)return;people=await (await fetch('/api/people'+qs())).json();
   if(!people.length){$('#bio').textContent='Nothing had been released by this date.';return}
   people.forEach(p=>{const o=el('option','',p.full_name+' - '+p.title);o.value=p.emp_id;$('#who').append(o)});show()}

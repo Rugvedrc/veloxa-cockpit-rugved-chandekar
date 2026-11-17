@@ -8,7 +8,7 @@ import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import agents
+from . import agents, worry
 from . import build as builder
 
 UI = (pathlib.Path(__file__).parent / "ui.html").read_bytes()
@@ -29,6 +29,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path == "/":
                 return self._send(UI, ctype="text/html")
+            if url.path == "/api/top3":
+                con = builder.get_con(as_of)
+                try:
+                    return self._send(worry.top_three(con))
+                finally:
+                    con.close()
             if url.path == "/api/worry":
                 return self._send(builder.table("SELECT * FROM finding ORDER BY severity DESC, id", as_of))
             if url.path == "/api/claims":
@@ -41,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
                     con.close()
             self._send({"error": "not found"}, 404)
         except builder.NothingReleased:
-            self._send([])  # nothing released yet: empty views
+            self._send({"rule": "", "themes": [], "total_findings": 0} if url.path == "/api/top3" else [])  # nothing released yet
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")

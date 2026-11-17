@@ -2,7 +2,8 @@
 
   python cockpit.py build [--data PATH] [--as-of 2026-11-16]   build the database(s) from the data room
   python cockpit.py ask "how many people?" [--as-of 2026-11-16]
-  python cockpit.py worry [--as-of DATE]
+  python cockpit.py top3 [--as-of DATE]                         the three things to worry about
+  python cockpit.py worry [--as-of DATE]                        all findings
   python cockpit.py interview VX007 "what keeps you up?"
   python cockpit.py serve                                       web UI at http://127.0.0.1:8765
   python cockpit.py test                                        run the automated test set
@@ -65,6 +66,15 @@ def main(argv):
             return sys.exit(0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1)
         if cmd == "ask":
             return show(builder.answer(" ".join(argv[2:]), as_of))
+        if cmd == "top3":
+            from cockpit import worry
+            con = builder.get_con(as_of)
+            t = worry.top_three(con)
+            for x in t["themes"]:
+                print(f"{x['rank']}. {x['label']} [{x['severity_label']}]  owner: {x['suggested_owner']}\n   {x['headline']}")
+                for a in x["also"]:
+                    print(f"   also: {a['title']}")
+            return print("\n" + t["rule"])
         if cmd == "worry":
             for f in builder.table("SELECT * FROM finding ORDER BY severity DESC, id", as_of):
                 print(f"[{f['severity']}] {f['title']}\n     {f['detail']}\n     evidence: {f['evidence']}\n")
