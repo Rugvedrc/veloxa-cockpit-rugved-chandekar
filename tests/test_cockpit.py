@@ -78,8 +78,11 @@ class CockpitTests(unittest.TestCase):
         self.assertEqual(latest, "2026-11-16")
 
     def test_day1_database_has_no_day2_tables_claims_or_aliases(self):
-        for t in ("requisition", "leave", "pulse", "resignation"):
+        for t in ("requisition", "leave", "pulse", "resignation", "git_commit", "incident", "oncall", "jira_issue", "jira_epic",
+                  "jira_version", "invoice", "launch_kit", "contractor"):
             self.assertEqual(self.con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0], 0, t)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM reporting_line WHERE status='planned'").fetchone()[0], 0)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM message WHERE cc IS NOT NULL").fetchone()[0], 0)
         self.assertEqual(self.con.execute("SELECT COUNT(*) FROM claim WHERE released_on > '2026-11-16'").fetchone()[0], 0)
         self.assertIsNone(find_person(self.con, "Sid"))
         self.assertEqual(self.con.execute("SELECT COUNT(*) FROM alias WHERE seen_in LIKE '%Resignation%'").fetchone()[0], 0)
@@ -91,7 +94,7 @@ class CockpitTests(unittest.TestCase):
         self.assertIn("Nothing had been released", r["answer"])
 
     def test_later_date_is_answered_from_snapshot_and_says_so(self):
-        r = build.answer("What is our ARR?", "2026-11-18")
+        r = build.answer("What is our ARR?", "2026-11-19")  # Day 4 is not modelled yet
         self.assertTrue(any("not modelled yet" in c for c in r["caveats"]))
 
     # --- agents (offline mode only)
