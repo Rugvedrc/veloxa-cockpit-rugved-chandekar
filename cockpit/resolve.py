@@ -10,7 +10,7 @@ import re
 from . import loaders
 from .db import ROOT
 
-D1, D2 = "2026-11-16", "2026-11-17"
+D1, D2, D3 = "2026-11-16", "2026-11-17", "2026-11-18"
 
 # (alias, emp_id, seen in, confidence, evidence, released_on)
 PERSON_ALIASES = [
@@ -26,7 +26,24 @@ PERSON_ALIASES = [
     ("Sid from marketing", "VX013", "T3", "H", "Deepa: 'Sid from marketing has put in his papers'; Siddharth Mehta is the marketing resignation", D2),
     ("Sid", "VX013", "T3", "M", "Short form; only one Siddharth/Sid on staff", D2),
     ("Vicky", "VX004", "T2 + emails 06/07", "M", "Raised from Low: the freeze T2 says to 'check with Vicky' is the pause of REQ-014/015 agreed between Meera and Vikram on 12 Aug", D2),
+    ("Ayesha", "VX011", "T4", "H", "Transcription of Aisha Khan: 'Ayesha' runs paid search, which is Aisha's role (Performance Marketing Manager)", D3),
+    ("pnair@users.noreply.github.com", "VX007", "git_log.csv", "M",
+     "GitHub no-reply address of P. Nair, a second git identity for Priya Nair: both commit only to atlas-engine over the same "
+     "dates (Nov 2025 - Oct 2026), never within a minute of each other, with the same hours; no other P. Nair exists", D3),
+    ("PN", "VX007", "Jira_Export_ATLAS (assignee initials)", "H", "Initials of Priya Nair; matches the owner of the core-engine epics in Vikram's 2 Jun plan", D3),
+    ("RV", "VX018", "Jira_Export_ATLAS (assignee initials)", "H", "Initials of Rahul Verma; owns the API epic as in the 2 Jun plan", D3),
+    ("AD", "VX009", "Jira_Export_ATLAS (assignee initials)", "H", "Initials of Arjun Das; owns the planner-UI epic as in the 2 Jun plan", D3),
+    ("SK", "VX012", "Jira_Export_ATLAS (assignee initials)", "H", "Initials of Sneha Kulkarni; owns the hardening epic as in the 2 Jun plan", D3),
 ]
+
+# People paid through a vendor, so absent from Keka. (id, name, vendor, role, evidence, confidence, released_on)
+CONTRACTORS = [
+    ("X001", "Snehal (S. Patil)", "PATIL", "On-call SRE (contractor, Patil Infra Services)",
+     "The on-call rota lists 'Snehal' and 'Sneha' in the same weeks, so they are two people. Keka has no Snehal. Invoice PIS-114 bills "
+     "'On-call SRE support, S. Patil'. PIS-108 covers 18-31 Aug, matching the first rota week with Snehal (17 Aug). Email 08 (24 Aug): "
+     "'The contractor starts on the rota this week'.", "M", D3),
+]
+CONTRACTOR_ALIASES = [("Snehal", "X001"), ("S. Patil", "X001")]
 
 # vendor_id -> (canonical name, note). Raw spellings map below.
 VENDORS = {
@@ -67,6 +84,40 @@ def load_entities(con):
     for raw, vid in RAW_TO_VENDOR.items():
         con.execute("INSERT INTO alias VALUES(?,?,?,?,?,?)", (raw, "vendor", vid, "GL export", "H", "as written in GL"))
     con.execute("UPDATE gl_entry SET vendor_id = (SELECT resolves_to FROM alias WHERE kind='vendor' AND alias=vendor_raw)")
+    for cid, name, vid, role, ev, conf, day in CONTRACTORS:
+        if _released(day):
+            con.execute("INSERT INTO contractor VALUES(?,?,?,?,?,?)", (cid, name, vid, role, ev, conf))
+            for alias, target in CONTRACTOR_ALIASES:
+                if target == cid:
+                    con.execute("INSERT INTO alias VALUES(?,?,?,?,?,?)", (alias, "contractor", cid, "rota / invoice", conf, ev[:90]))
+    con.execute("UPDATE invoice SET vendor_id = (SELECT resolves_to FROM alias WHERE kind='vendor' AND alias=vendor_name)")
+    link_records(con)
+
+
+def _one(con, raw, kinds=("contractor", "person")):
+    """The single id a raw name/initials/email resolves to, or None if unknown or ambiguous."""
+    if raw is None:
+        return None
+    for kind in kinds:
+        ids = {r[0] for r in con.execute("SELECT resolves_to FROM alias WHERE kind=? AND lower(alias)=lower(?)", (kind, raw))}
+        if len(ids) == 1:
+            return ids.pop()
+    return None
+
+
+def link_records(con):
+    """Point every engineering record at a person. Anything that resolves to more than one person stays NULL."""
+    for (em,) in con.execute("SELECT DISTINCT author_email FROM git_commit").fetchall():
+        con.execute("UPDATE git_commit SET emp_id=? WHERE author_email=?", (_one(con, em, ("person",)), em))
+    for (raw,) in con.execute("SELECT DISTINCT assignee_raw FROM jira_issue").fetchall():
+        con.execute("UPDATE jira_issue SET emp_id=? WHERE assignee_raw=?", (_one(con, raw, ("person",)), raw))
+    for (raw,) in con.execute("SELECT DISTINCT responder_raw FROM incident").fetchall():
+        con.execute("UPDATE incident SET responder_id=? WHERE responder_raw=?", (_one(con, raw), raw))
+    for r in con.execute("SELECT rowid, primary_raw, secondary_raw FROM oncall").fetchall():
+        con.execute("UPDATE oncall SET primary_id=?, secondary_id=? WHERE rowid=?",
+                    (_one(con, r["primary_raw"]), _one(con, r["secondary_raw"]), r["rowid"]))
+    for (raw,) in con.execute("SELECT DISTINCT owner_raw FROM launch_kit").fetchall():
+        con.execute("UPDATE launch_kit SET owner_id=? WHERE owner_raw=?", (_one(con, raw, ("person",)), raw))
 
 
 def load_claims(con):
@@ -83,11 +134,16 @@ def find_person(con, text):
     """Return emp_id for the best name match in `text`, or None. Longest alias wins."""
     t = text.lower()
     best = None
-    for r in con.execute("SELECT alias, resolves_to, confidence FROM alias WHERE kind='person'"):
-        a = r["alias"].lower()
+    # Aliases first, then the people table itself, so someone added or renamed in the data is found without waiting for a rebuild.
+    rows = [(r["alias"], r["resolves_to"]) for r in con.execute("SELECT alias, resolves_to FROM alias WHERE kind='person'")]
+    for r in con.execute("SELECT emp_id, full_name FROM person"):
+        rows.append((r["full_name"], r["emp_id"]))
+        rows.append((r["full_name"].split()[0], r["emp_id"]))
+    for alias, resolves_to in rows:
+        a = alias.lower()
         if "@" in a or len(a) < 3:
             continue
         if re.search(r"\b" + re.escape(a) + r"\b", t):
             if best is None or len(a) > best[0]:
-                best = (len(a), r["resolves_to"])
+                best = (len(a), resolves_to)
     return best[1] if best else None

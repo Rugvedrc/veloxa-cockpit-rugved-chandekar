@@ -114,8 +114,8 @@ def load_emails(con):
         add_source(con, p, "email")
         sent = email.utils.parsedate_to_datetime(m["Date"]).astimezone(IST).isoformat()
         body = m.get_body(("plain",)).get_content().strip()
-        con.execute("INSERT INTO message VALUES(?,?,?,?,?,?,?)",
-                    (mid, m["From"], m["To"], m["Subject"], sent, body, p.name))
+        con.execute("INSERT INTO message VALUES(?,?,?,?,?,?,?,?)",
+                    (mid, m["From"], m["To"], m["Subject"], sent, body, p.name, m["Cc"]))
 
 
 def _docx_text(path):
@@ -195,8 +195,127 @@ def load_letters(con):
                     (p.stem, "letter", p.stem.replace("_", " "), t, p.name))
 
 
+def _utc(s):
+    """'2026-08-04T05:12:00Z' -> aware UTC datetime."""
+    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def load_git(con):
+    import csv
+    for p in files("data_room/engineering/git_log.csv"):
+        add_source(con, p, "engineering", "git history; committed_at is UTC in the source")
+        with open(p, encoding="utf8", newline="") as fh:
+            for i, r in enumerate(csv.DictReader(fh), start=2):
+                t = datetime.fromisoformat(r["committed_at"])
+                con.execute("INSERT INTO git_commit VALUES(?,?,?,?,?,?,?,?,?)", (
+                    r["sha"], r["author_email"].strip().lower(), None, t.astimezone(timezone.utc).isoformat(),
+                    t.astimezone(IST).isoformat(), r["repo"], r["message"], int(r["files_changed"]), f"{p.name}!R{i}"))
+
+
+def load_incidents(con):
+    for p in files("data_room/engineering/Incidents_*.xlsx"):
+        add_source(con, p, "engineering", "PagerDuty export; times are UTC in the source")
+        for i, r in _rows(p):
+            o, c = _utc(r["Opened"]), _utc(r["Resolved"])
+            con.execute("INSERT INTO incident VALUES(?,?,?,?,?,?,?,?,?,?,?)", (
+                r["ID"], r["Severity"], o.isoformat(), c.isoformat(), o.astimezone(IST).isoformat(),
+                c.astimezone(IST).isoformat(), round((c - o).total_seconds() / 3600, 2), r["Service"],
+                r["Responder"], None, f"{p.name}!R{i}"))
+
+
+def load_oncall(con):
+    for p in files("data_room/engineering/OnCall_Rota.xlsx"):
+        add_source(con, p, "engineering", "team wiki table copied into a sheet")
+        for i, r in _rows(p):
+            con.execute("INSERT INTO oncall VALUES(?,?,?,?,?,?)",
+                        (r["Week of"], r["Primary"], r["Secondary"], None, None, f"{p.name}!R{i}"))
+
+
+def load_jira(con):
+    for p in files("data_room/engineering/Jira_Export_*.xlsx"):
+        add_source(con, p, "engineering", "Jira export, project ATLAS; assignee shown as initials")
+        wb = openpyxl.load_workbook(p, data_only=True)
+        for i, r in _sheet_rows(wb["Issues"], 3):
+            con.execute("INSERT INTO jira_issue VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (
+                r["Key"], r["Type"], r["Summary"], r["Epic Link"], r["Assignee"], None, r["Story Points"],
+                r["Status"], r["Created"], r["Resolved"] or None, r["Fix Version"], f"{p.name}!Issues!R{i}"))
+        for i, r in _sheet_rows(wb["Epics"], 1):
+            con.execute("INSERT INTO jira_epic VALUES(?,?,?)", (r["Key"], r["Epic Name"], f"{p.name}!Epics!R{i}"))
+        for i, r in _sheet_rows(wb["Versions"], 1):
+            con.execute("INSERT INTO jira_version VALUES(?,?,?,?,?,?)", (
+                r["Version"], r["Release Date"], r["Original Release Date"], r["Last Changed"], r["Changed By"],
+                f"{p.name}!Versions!R{i}"))
+
+
+def _sheet_rows(ws, header_row):
+    rows = ws.iter_rows(min_row=header_row, values_only=True)
+    header = [str(h).strip() for h in next(rows)]
+    for i, r in enumerate(rows, start=header_row + 1):
+        if any(c is not None for c in r):
+            yield i, dict(zip(header, r))
+
+
+def _inr(s):
+    """'1,41,600' -> 141600 (Indian digit grouping)."""
+    return int(s.replace(",", ""))
+
+
+def load_invoices(con):
+    for p in files("data_room/documents/Invoice_*.pdf"):
+        add_source(con, p, "document")
+        t = _pdf_text(p)
+        flat = re.sub(r"\s+", " ", t)
+        no = re.search(r"Invoice No\. (\S+)", flat).group(1)
+        d, m, y = re.search(r"Date (\d{2})/(\d{2})/(\d{4})", flat).groups()
+        vendor = t.strip().splitlines()[0].title()
+        desc = re.search(r"Amount \(Rs\.\) (.+?) (?:[\d,]+) IGST", flat).group(1)
+        base = _inr(re.search(re.escape(desc) + r" ([\d,]+)", flat).group(1))
+        tax = _inr(re.search(r"IGST @ \d+% ([\d,]+)", flat).group(1))
+        total = _inr(re.search(r"Total ([\d,]+)", flat).group(1))
+        note = re.search(r"(Previous invoice .+)$", flat)
+        con.execute("INSERT INTO invoice VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (
+            no, vendor, None, re.search(r"GSTIN (\w+)", flat).group(1), f"{y}-{m}-{d}",
+            re.search(r"Place of Supply (.+?) Description", flat).group(1), desc, base, tax, total,
+            note.group(1) if note else None, p.name))
+        con.execute("INSERT OR REPLACE INTO document VALUES(?,?,?,?,?)", (p.stem, "invoice", p.stem.replace("_", " "), t, p.name))
+
+
+def load_launch_kit(con):
+    for p in files("data_room/documents/Atlas_Launch_Kit_*.pdf"):
+        add_source(con, p, "document")
+        t = _pdf_text(p)
+        lines = [l.strip() for l in t.splitlines() if l.strip()]
+        version = re.search(r"launch kit, (v\d+)", lines[0], re.I).group(1)
+        owner, dated = re.search(r"Owner: (\w+)\. (\d+ \w+ \d{4})", lines[1]).groups()
+        dated = datetime.strptime(dated, "%d %b %Y").date().isoformat()
+        body = lines[lines.index("Status") + 1:]
+        for asset, status in zip(body[0::2], body[1::2]):
+            con.execute("INSERT INTO launch_kit VALUES(?,?,?,?,?,?,?)", (version, owner, None, dated, asset, status, p.name))
+        con.execute("INSERT OR REPLACE INTO document VALUES(?,?,?,?,?)", (p.stem, "launch_kit", p.stem.replace("_", " "), t, p.name))
+
+
+def load_email_printout(con):
+    """The printable copy of the emails must agree with the .eml files; record whether it does."""
+    norm = lambda s: re.sub(r"\s+", " ", s).strip()
+    for p in files("data_room/email/Email_Printouts.pdf"):
+        t = _pdf_text(p)
+        blocks = re.split(r"\n(?=\d\d\. )", t)[1:]
+        have = {(norm(r["subject"]), norm(r["body"])) for r in con.execute("SELECT subject, body FROM message")}
+        same = diff = 0
+        for b in blocks:
+            subject = norm(b.splitlines()[0][4:])
+            body = norm(re.sub(r"^.*?\nDate:[^\n]*\n", "", b, count=1, flags=re.S))
+            if (subject, body) in have:
+                same += 1
+            else:
+                diff += 1
+        add_source(con, p, "email", f"printable copy: {same} of {same + diff} threads identical to the .eml files, {diff} differences")
+        con.execute("INSERT OR REPLACE INTO document VALUES(?,?,?,?,?)", (p.stem, "printout", "Email printouts", t, p.name))
+
+
 def load_all(con):
     for fn in (load_employees, load_payroll, load_gl, load_board, load_emails, load_transcripts,
-               load_requisitions, load_leave, load_pulse, load_letters):
+               load_requisitions, load_leave, load_pulse, load_letters,
+               load_git, load_incidents, load_oncall, load_jira, load_invoices, load_launch_kit, load_email_printout):
         fn(con)
     con.commit()

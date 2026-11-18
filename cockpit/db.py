@@ -37,7 +37,8 @@ CREATE TABLE board_update (
   period TEXT, sent_on TEXT, arr_cr REAL, customers INT, team INT,
   burn_lakh REAL, runway_months INT, narrative TEXT, src_ref TEXT);
 CREATE TABLE message (           -- emails
-  msg_id TEXT, sender TEXT, recipient TEXT, subject TEXT, sent_at TEXT, body TEXT, src_ref TEXT);
+  msg_id TEXT, sender TEXT, recipient TEXT, subject TEXT, sent_at TEXT, body TEXT, src_ref TEXT,
+  cc TEXT);
 CREATE TABLE document (          -- transcripts, letters, anything free text
   doc_id TEXT PRIMARY KEY, kind TEXT, title TEXT, body TEXT, src_ref TEXT);
 CREATE TABLE claim (             -- curated statements from transcripts, with our verdict
@@ -60,6 +61,30 @@ CREATE TABLE pulse (             -- Culture Amp pulse, team level only (comments
   comments TEXT, src_ref TEXT);
 CREATE TABLE resignation (
   emp_id TEXT, letter_date TEXT, last_day TEXT, addressed_to TEXT, stated_reason TEXT, src_ref TEXT);
+CREATE TABLE git_commit (        -- git_log.csv; times are UTC in the source, both forms kept
+  sha TEXT PRIMARY KEY, author_email TEXT, emp_id TEXT, committed_utc TEXT, committed_ist TEXT,
+  repo TEXT, message TEXT, files_changed INT, src_ref TEXT);
+CREATE TABLE incident (          -- PagerDuty export; times are UTC in the source
+  id TEXT PRIMARY KEY, severity TEXT, opened_utc TEXT, resolved_utc TEXT, opened_ist TEXT, resolved_ist TEXT,
+  hours REAL, service TEXT, responder_raw TEXT, responder_id TEXT, src_ref TEXT);
+CREATE TABLE oncall (            -- wiki table copied into a sheet
+  week_of TEXT, primary_raw TEXT, secondary_raw TEXT, primary_id TEXT, secondary_id TEXT, src_ref TEXT);
+CREATE TABLE jira_issue (
+  key TEXT PRIMARY KEY, type TEXT, summary TEXT, epic_key TEXT, assignee_raw TEXT, emp_id TEXT,
+  points INT, status TEXT, created TEXT, resolved TEXT, fix_version TEXT, src_ref TEXT);
+CREATE TABLE jira_epic (key TEXT PRIMARY KEY, name TEXT, src_ref TEXT);
+CREATE TABLE jira_version (
+  version TEXT, release_date TEXT, original_release_date TEXT, last_changed TEXT, changed_by TEXT, src_ref TEXT);
+CREATE TABLE invoice (
+  invoice_no TEXT PRIMARY KEY, vendor_name TEXT, vendor_id TEXT, vendor_gstin TEXT, invoice_date TEXT,
+  place_of_supply TEXT, description TEXT, base INT, tax INT, total INT, note TEXT, src_ref TEXT);
+CREATE TABLE launch_kit (        -- one row per asset of a kit version
+  version TEXT, owner_raw TEXT, owner_id TEXT, dated TEXT, asset TEXT, status TEXT, src_ref TEXT);
+CREATE TABLE contractor (        -- people paid through a vendor, so not in Keka
+  id TEXT PRIMARY KEY, name TEXT, vendor_id TEXT, role TEXT, evidence TEXT, confidence TEXT);
+CREATE TABLE reporting_line (    -- who reports to whom, with dates; planned lines are never shown as fact
+  emp_id TEXT, manager_id TEXT, manager_title TEXT, from_date TEXT, to_date TEXT, status TEXT,
+  source TEXT, note TEXT);      -- status: current | planned
 """
 
 _override = None
