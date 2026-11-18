@@ -10,7 +10,7 @@ Theme groups findings for the top-three view: delivery | money | people.
 """
 import calendar
 import difflib
-from datetime import date
+from datetime import date, timedelta
 
 MON = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
 
@@ -129,13 +129,16 @@ def hiring(con):
         held = con.execute("SELECT * FROM requisition WHERE status='On hold' ORDER BY req_id").fetchall()
         if held:
             cand = sum(r["in_pipeline"] for r in held)
-            mails = [m["src_ref"] for m in con.execute("SELECT src_ref FROM message WHERE subject LIKE '%Pausing%' ORDER BY sent_at")]
+            pm = con.execute("SELECT src_ref, cc FROM message WHERE subject LIKE '%Pausing%' ORDER BY sent_at").fetchall()
+            mails = [m["src_ref"] for m in pm]
             roles = ", ".join(f"{r['req_id']} {r['role']}" for r in held)
             cancelled = "; ".join(r["notes"] for r in held if r["notes"])
+            cc = next((m["cc"] for m in pm if m["cc"]), None)
+            copied = f" The CEO and the Talent Partner were copied on the pause." if cc and "ananya" in cc.lower() else ""
             _add(con, "F-HIRE", "people", 3 if cand >= 6 else 2,
                  f"{len(held)} backend roles on hold since {held[0]['status_date']} with {cand} candidates waiting",
                  f"{roles}, opened {held[0]['opened']}. The CFO paused them 'until the round closes' to protect burn "
-                 f"and the VP Engineering replied 'We'll absorb it'. Tracker note: {cancelled}. The recruiter was already "
+                 f"and the VP Engineering replied 'We'll absorb it'.{copied} Tracker note: {cancelled}. The recruiter was already "
                  f"paid Rs {fee['amount']:,} (50% advance) on 30 Jun for these roles; if the fee is split 50/50 about the "
                  f"same is still owed. Meanwhile Atlas (already late) is being built by the existing team.",
                  f"{'; '.join(r['src_ref'] for r in held)}; {'; '.join(mails)}; {fee['src_ref']}", "delivery")
@@ -165,15 +168,243 @@ def hiring_vs_board(con):
              f"{b['src_ref']}; " + "; ".join(r["src_ref"] for r in opened), "people")
 
 
+EXPORT_DATE = date(2026, 10, 31)  # data_room/README.txt: "Exported by IT on 31 Oct 2026"
+
+
+def _ver(con):
+    return con.execute("SELECT * FROM jira_version ORDER BY last_changed DESC LIMIT 1").fetchone()
+
+
 def atlas(con):
     b = con.execute("SELECT * FROM board_update ORDER BY sent_on").fetchall()
-    if len(b) >= 2:
+    if len(b) < 2:
+        return
+    v = _ver(con)
+    if not v:  # Day 1-2: only the board and the CEO's call
         _add(con, "F-ATLAS", "delivery", 3,
              "Atlas (routing engine v3) GA slipped from 15 Sep with no new date",
              f"{b[0]['sent_on']}: 'on track for GA on 15 September'. {b[-1]['sent_on']}: GA moved to absorb "
              f"reliability work after 'a difficult August'. The CEO believes customers were promised delivery "
              f"'by the festive season' and is unsure it will make it. No replacement date exists in any source yet.",
              "Board updates; T1 (CEO call)", "delivery")
+        return
+    new, old = date.fromisoformat(v["release_date"]), date.fromisoformat(v["original_release_date"])
+    weeks = (new - old).days // 7
+    plan = con.execute("SELECT src_ref FROM message WHERE subject='Atlas plan'").fetchone()
+    pause = con.execute("SELECT src_ref, cc FROM message WHERE subject LIKE '%Pausing two reqs' ORDER BY sent_at LIMIT 1").fetchone()
+    dep = (" Vikram's 2 Jun plan to the CEO made the date conditional on 'the two backend hires land by July'; those roles opened on "
+           "18 May and were paused on 12 Aug with the CEO copied." if plan and pause else "")
+    ev = [v["src_ref"], b[0]["src_ref"], b[-1]["src_ref"], "T1"] + ([plan["src_ref"], pause["src_ref"]] if plan and pause else [])
+    _add(con, "F-ATLAS", "delivery", 3,
+         f"Atlas GA slipped from {old.strftime('%d %b')} to {new.strftime('%d %b %Y')} ({weeks} weeks)",
+         f"Jira's release date for Atlas GA was changed on {v['last_changed']} by '{v['changed_by']}' from {v['original_release_date']} to "
+         f"{v['release_date']}. The board saw 'on track' on {b[0]['sent_on']} and 'moved GA' on {b[-1]['sent_on']} without a new date. "
+         f"The CEO believes customers were promised delivery 'by the festive season'; mid-December is after any reading of that.{dep}",
+         "; ".join(ev), "delivery")
+
+
+def jira_stats(con):
+    """Totals, pace and the pace needed to reach the Jira GA date. None if Jira is not loaded (yet)."""
+    v = _ver(con)
+    issues = con.execute("SELECT * FROM jira_issue").fetchall()
+    if not v or not issues:
+        return None
+    done = [i for i in issues if i["status"] == "Done"]
+    open_ = [i for i in issues if i["status"] != "Done"]
+    rem = sum(i["points"] for i in open_)
+    ga = date.fromisoformat(v["release_date"])
+    win = date(2026, 7, 1)
+    pace = sum(i["points"] for i in done if i["resolved"] >= win.isoformat()) / ((EXPORT_DATE - win).days / 7)
+    return {"v": v, "issues": issues, "done": done, "open": open_, "tot": sum(i["points"] for i in issues), "rem": rem,
+            "done_pts": sum(i["points"] for i in done), "last": max(i["resolved"] for i in done), "ga": ga, "pace": pace,
+            "need": rem / max((ga - EXPORT_DATE).days / 7, 0.1), "weeks_at_pace": rem / pace if pace else None}
+
+
+def atlas_burn(con):
+    """Is the remaining Jira work plausible by the GA date at the pace actually achieved?"""
+    s = jira_stats(con)
+    if not s:
+        return
+    v, issues, done, open_, tot, rem, last, ga, pace, need = (s[k] for k in ("v", "issues", "done", "open", "tot", "rem", "last", "ga", "pace", "need"))
+    day_after = (date.fromisoformat(last) + timedelta(days=1)).isoformat()
+    gitn = con.execute("SELECT COUNT(*) FROM git_commit WHERE committed_ist >= ?", (f"{day_after}T00:00:00",)).fetchone()[0]
+    after_last = sum(1 for i in done if i["resolved"] > last)
+    oct_done = sum(1 for i in done if i["resolved"] >= "2026-10-01")
+    # the epic with the smallest share of its points done
+    shares = []
+    for e in con.execute("SELECT * FROM jira_epic"):
+        pts = [(i["points"], i["status"] == "Done") for i in issues if i["epic_key"] == e["key"]]
+        if pts:
+            shares.append((sum(p for p, d in pts if d) / sum(p for p, _ in pts), e["key"], e["name"]))
+    least = min(shares) if shares else None
+    _add(con, "F-ATLAS-BURN", "delivery", 3,
+         f"{rem} of {tot} Atlas story points are still open and nothing has been resolved since {last}",
+         f"{len(open_)} of {len(issues)} tickets are open ({sum(1 for i in open_ if i['status'] == 'In Progress')} in progress). Finishing "
+         f"{rem} points by {ga.isoformat()} needs about {need:.0f} points a week; the pace since 1 Jul was about {pace:.1f} a week "
+         f"and {'none were' if oct_done == 0 else str(oct_done) + ' were'} resolved in October. At the July-October pace the remaining work "
+         f"would take roughly {rem / pace:.0f} weeks. Caveat: {gitn} commits landed after {last} but commit messages carry no ticket key, "
+         f"so work and tickets cannot be matched; Jira may simply be stale."
+         + (f" Least finished epic: {least[2]} ({least[1]}), {least[0] * 100:.0f}% of its points done." if least else ""),
+         f"{issues[0]['src_ref'].rsplit('!R', 1)[0]}; {v['src_ref']}; git_log.csv", "delivery")
+    if gitn > 50 and after_last == 0:
+        octc = con.execute("SELECT COUNT(*) FROM git_commit WHERE committed_ist >= '2026-10-01'").fetchone()[0]
+        _add(con, "F-JIRA-STALE", "delivery", 2,
+             f"Jira and git disagree: {gitn} commits since the last ticket was closed ({last})",
+             f"Code kept moving ({octc} commits in October) while no ticket was resolved. Either tickets are not being closed or the "
+             f"work is not being tracked, so neither source alone says how close Atlas is.",
+             f"{issues[0]['src_ref'].rsplit('!R', 1)[0]}; git_log.csv", "delivery")
+
+
+def key_person(con):
+    """Concentration of Atlas work. About how work is spread, not about anyone's intentions."""
+    issues = con.execute("SELECT * FROM jira_issue WHERE emp_id IS NOT NULL").fetchall()
+    commits = con.execute("SELECT * FROM git_commit WHERE emp_id IS NOT NULL").fetchall()
+    if not issues or not commits:
+        return
+    pts, open_pts = {}, {}
+    for i in issues:
+        pts[i["emp_id"]] = pts.get(i["emp_id"], 0) + i["points"]
+        if i["status"] != "Done":
+            open_pts[i["emp_id"]] = open_pts.get(i["emp_id"], 0) + i["points"]
+    top = max(pts, key=pts.get)
+    share = pts[top] / sum(pts.values())
+    if share < 0.4:
+        return
+    p = con.execute("SELECT full_name, title FROM person WHERE emp_id=?", (top,)).fetchone()
+    mine = [c for c in commits if c["emp_id"] == top]
+    eng = [c for c in commits if c["repo"] == "atlas-engine"]
+    ids = sorted({c["author_email"] for c in mine})
+    late = lambda c: int(c["committed_ist"][11:13]) >= 22 or int(c["committed_ist"][11:13]) < 6
+    mine_late = [c for c in mine if late(c)]
+    others_late = sum(1 for c in commits if c["emp_id"] != top and late(c))
+    first_late = min((c["committed_ist"][:7] for c in mine_late), default=None)
+    since = [c for c in mine if c["committed_ist"] >= "2026-07-01"]
+    wk = sum(1 for c in since if date.fromisoformat(c["committed_ist"][:10]).weekday() >= 5)
+    after_first = [c for c in mine if first_late and c["committed_ist"][:7] >= first_late]
+    mail = con.execute("SELECT src_ref, sent_at FROM message WHERE subject LIKE 'time this week%'").fetchone()
+    tail = f" Her 1 Sep email asking to talk about 'Atlas ownership' was sent at {mail['sent_at'][11:16]}." if mail else ""
+    pct = lambda a, b: f"{a * 100 / b:.0f}%"
+    _add(con, "F-KEYPERSON", "people", 3,
+         f"Atlas depends on one engineer: {p['full_name']} owns {share * 100:.0f}% of its story points",
+         f"{p['full_name']} ({p['title']}) owns {pts[top]} of {sum(pts.values())} Atlas points and {open_pts.get(top, 0)} of the "
+         f"{sum(open_pts.values())} still open, and made {len(mine)} of {len(commits):,} commits ({pct(len(mine), len(commits))}; "
+         f"{pct(sum(1 for c in mine if c['repo'] == 'atlas-engine'), len(eng))} of atlas-engine), counting her {len(ids)} git identities as one. "
+         f"After-hours commits (22:00-06:00 IST) appear only for her: none before {first_late or 'n/a'}, then {len(mine_late)} of "
+         f"her {len(after_first)} commits from then on; {pct(wk, len(since)) if since else 'n/a'} of her commits since July are on "
+         f"weekends. Everyone else made {others_late} after-hours commits.{tail} "
+         f"This is about how the work is spread, not about anyone's plans.",
+         "Jira_Export_ATLAS.xlsx!Issues; git_log.csv" + (f"; {mail['src_ref']}" if mail else ""), "people")
+
+
+def git_identities(con):
+    rows = con.execute("""SELECT emp_id, COUNT(DISTINCT author_email) n, GROUP_CONCAT(DISTINCT author_email) emails, COUNT(*) c
+                          FROM git_commit WHERE emp_id IS NOT NULL GROUP BY emp_id HAVING n > 1""").fetchall()
+    for r in rows:
+        p = con.execute("SELECT full_name FROM person WHERE emp_id=?", (r["emp_id"],)).fetchone()
+        per = con.execute("SELECT author_email, COUNT(*) c FROM git_commit WHERE emp_id=? GROUP BY author_email", (r["emp_id"],)).fetchall()
+        _add(con, f"F-GITID-{r['emp_id']}", "data", 1,
+             f"{p['full_name']} commits under {r['n']} identities; counted as one person",
+             "Counted separately they would be " + " and ".join(f"{x['c']}" for x in per) + f" commits ({r['c']} together), and the second "
+             "address would look like another engineer. Merged on evidence: a no-reply form of the same name, the same repo and dates, "
+             "the same hours, no overlap within a minute. Medium-high confidence (ASSUMPTIONS A-31).", "git_log.csv", "delivery")
+
+
+def oncall_load(con):
+    weeks = con.execute("SELECT * FROM oncall").fetchall()
+    inc = con.execute("SELECT * FROM incident").fetchall()
+    if not weeks:
+        return
+    count = {}
+    for w in weeks:
+        for k in {w["primary_id"], w["secondary_id"]} - {None}:
+            count[k] = count.get(k, 0) + 1
+    emp = {k: v for k, v in count.items() if con.execute("SELECT 1 FROM person WHERE emp_id=?", (k,)).fetchone()}
+    if not emp:
+        return
+    top = max(emp, key=emp.get)
+    if emp[top] < 0.9 * len(weeks):
+        return
+    p = con.execute("SELECT full_name, title FROM person WHERE emp_id=?", (top,)).fetchone()
+    prim = sum(1 for w in weeks if w["primary_id"] == top)
+    mine = [i for i in inc if i["responder_id"] == top]
+    sev1 = [i for i in mine if i["severity"] == "SEV1"]
+    night = lambda i: int(i["opened_ist"][11:13]) >= 22 or int(i["opened_ist"][11:13]) < 6
+    hard = con.execute("SELECT COUNT(*) n, SUM(status='Done') d FROM jira_issue WHERE epic_key='ATLAS-5' AND emp_id=?", (top,)).fetchone()
+    contractor = con.execute("SELECT c.name, i.base, i.tax FROM contractor c LEFT JOIN invoice i ON i.vendor_id=c.vendor_id LIMIT 1").fetchone()
+    ctext = (f" A contractor, {contractor['name']}, joined the rota in mid-August"
+             + (f" at Rs {contractor['base']:,} a month plus GST" if contractor["base"] else "") + "; the two backend roles that would have added capacity stayed frozen.") if contractor else ""
+    _add(con, "F-ONCALL", "people", 2,
+         f"{p['full_name']} was on call in all {len(weeks)} rota weeks ({prim} as primary) and handled every SEV1",
+         f"{p['full_name']} ({p['title']}) handled {len(sev1)} SEV1s ({sum(i['hours'] for i in sev1):.1f} hours of incident time, "
+         f"{sum(1 for i in sev1 if night(i))} starting at night IST) and {len(mine)} of {len(inc)} incidents overall. Her own Atlas hardening tickets: "
+         f"{hard['d'] or 0} of {hard['n']} done. On 24 Aug she wrote that she was pausing the Atlas perf tickets to stabilise routing-api.{ctext}",
+         "OnCall_Rota.xlsx; Incidents_Aug-Oct_2026.xlsx; 08.eml; Jira_Export_ATLAS.xlsx!Issues", "people")
+
+
+def launch_kit(con):
+    rows = con.execute("SELECT * FROM launch_kit").fetchall()
+    v = _ver(con)
+    if not rows:
+        return
+    asset = {r["asset"]: r["status"] for r in rows}
+    owner = con.execute("SELECT * FROM person WHERE emp_id=?", (rows[0]["owner_id"],)).fetchone()
+    back = con.execute("SELECT * FROM requisition WHERE notes LIKE '%ackfill%'").fetchone()
+    planned = None
+    for r in rows:
+        if r["asset"] == "Launch date":
+            import re
+            m = re.search(r"planned (\d{1,2}) (\w{3})", r["status"])
+            if m:
+                planned = date(int(r["dated"][:4]), {mm: i for i, mm in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}[m.group(2)], int(m.group(1)))
+    gap = f" Jira now has GA on {v['release_date']}, {(date.fromisoformat(v['release_date']) - planned).days // 7} weeks after that." if v and planned else ""
+    left = (f" Its owner, {owner['full_name']}, was due to leave on {owner['exit_date']} (status: {owner['status'].lower()})"
+            + (f"; the backfill {back['req_id']} was still '{back['status']}'." if back else ".")) if owner and owner["exit_date"] else ""
+    pend = [a for a, s in asset.items() if s.lower().startswith("draft")]
+    _add(con, "F-LAUNCHKIT", "delivery", 2,
+         "The Atlas launch kit is stale: only v1 exists, the press note is a draft and its launch date predates the slip",
+         f"Kit {rows[0]['version']} is dated {rows[0]['dated']}. Deck, website page (unpublished) and the 3-email sequence are 'Ready'; "
+         f"{', '.join(pend) or 'nothing'} is still draft; the launch date was 'planned {planned.strftime('%d %b') if planned else '?'}'.{gap}{left} "
+         f"Marketing's account ('ready since July, just waiting on engineering') is true of the assets, not of the plan.",
+         f"{rows[0]['src_ref']}; 05.eml" + (f"; {v['src_ref']}" if v else "") + (f"; {back['src_ref']}" if back else ""), "delivery")
+
+
+def contractor_invoice(con):
+    inv = con.execute("SELECT * FROM invoice").fetchone()
+    if not inv:
+        return
+    gl = con.execute("SELECT * FROM gl_entry WHERE vendor_id=? ORDER BY txn_date", (inv["vendor_id"],)).fetchall()
+    last_gl = max((g["txn_date"] for g in con.execute("SELECT txn_date FROM gl_entry")), default=None)
+    pro = [g for g in gl if "18-31 Aug" in (g["narration"] or "")]
+    parts = []
+    if inv["invoice_date"] > (last_gl or ""):
+        parts.append(f"{inv['invoice_no']} (dated {inv['invoice_date']}, Rs {inv['total']:,} incl. IGST) is for September but is not in the "
+                     f"ledger export, which ends {last_gl}; unless it was accrued, September engineering-ops cost is understated by that amount.")
+    if pro:
+        booked = pro[0]["amount"]
+        base = round(booked / 1.18)
+        fair = round(inv["base"] * 14 / 31)
+        parts.append(f"{pro[0]['ref']} for 14 days (18-31 Aug) was booked at Rs {booked:,}, i.e. Rs {base:,} before 18% GST. Pro-rating the "
+                     f"Rs {inv['base']:,} retainer by calendar days gives Rs {fair:,}; Rs {base:,} equals exactly half a month, so a 28-day basis was "
+                     f"used. Up to Rs {round((base - fair) * 1.18):,} more than a calendar-day basis, if that is the contract basis (unknown).")
+    parts.append("IGST at 18% is correct: the supplier's GSTIN state code is 27 (Maharashtra) and the place of supply is Karnataka, an inter-state sale.")
+    _add(con, "F-INVOICE", "finance", 1, "Contractor invoices: September is not in the ledger, and the August pro-rata may be high",
+         " ".join(parts), f"{inv['src_ref']}; " + "; ".join(g["src_ref"] for g in gl), "money")
+
+
+def reorg_pending(con):
+    for r in con.execute("""SELECT l.*, p.full_name, p.title, m.full_name mgr FROM reporting_line l JOIN person p USING(emp_id)
+                            LEFT JOIN person m ON m.emp_id = (SELECT manager_id FROM reporting_line c WHERE c.emp_id=l.emp_id AND c.status='current')
+                            WHERE l.status='planned'"""):
+        has_role = con.execute("SELECT COUNT(*) FROM person WHERE title LIKE '%' || ? || '%' OR title LIKE '%Chief Revenue%'",
+                               (r["manager_title"] or "~",)).fetchone()[0]
+        req = con.execute("SELECT COUNT(*) FROM requisition WHERE role LIKE '%' || ? || '%' OR role LIKE '%Chief Revenue%'",
+                          (r["manager_title"] or "~",)).fetchone()[0]
+        _add(con, f"F-ORG-{r['emp_id']}", "people", 1,
+             f"{r['full_name']}'s team is due to report to a {r['manager_title']} who does not exist in the records yet",
+             f"{r['note']} Today Keka shows {r['full_name']} ({r['title']}) reporting to {r['mgr'] or 'no one'}. "
+             f"{'No such role is on the payroll' if not has_role else 'A matching role exists'}; "
+             f"{'no matching requisition is in the hiring tracker' if not req else 'a matching requisition exists'}. "
+             f"Treated as a planned change, not a fact.", r["source"], "people")
 
 
 def pulse_drops(con):
@@ -210,11 +441,13 @@ def departures(con):
             tail = (f" The backfill ({back['req_id']}, opened {back['opened']}) had {back['in_pipeline']} candidates and was "
                     f"still '{back['status']}' at the 31 Oct export, so no successor was in place for the launch work."
                     if back else "")
+            draft = con.execute("SELECT asset FROM launch_kit WHERE owner_id=? AND lower(status) LIKE 'draft%'", (r["emp_id"],)).fetchall()
+            kit = f" The kit he owns still has a draft ({', '.join(d['asset'] for d in draft)})." if draft else ""
             _add(con, f"F-EXIT-{r['emp_id']}", "people", 2,
                  f"{r['full_name']} ({r['title']}) is leaving - last day {r['exit_date']}",
                  f"Letter dated {res['letter_date']} (the planned Atlas GA date), {gap} days' notice, addressed to "
                  f"{res['addressed_to']}. Stated reason: wanting 'clearer launch timelines'; the letter mentions no new "
-                 f"job. He built the launch kit and promised a handover before leaving.{tail}",
+                 f"job. He built the launch kit and promised a handover before leaving.{kit}{tail}",
                  f"{res['src_ref']}; {r['src_ref']}" + (f"; {back['src_ref']}" if back else ""), "people")
         else:
             _add(con, f"F-EXIT-{r['emp_id']}", "people", 2,
@@ -240,12 +473,16 @@ def pending_requests(con):
 
 def spoken_vs_data(con):
     b = con.execute("SELECT * FROM board_update ORDER BY sent_on DESC LIMIT 1").fetchone()
+    mk = con.execute("SELECT 1 FROM claim WHERE id='C30'").fetchone()
+    extra = (" Marketing's total of 'one point eight' (unit not stated) does not fit the ledger's Rs 14.27 lakh for marketing "
+             "under any simple reading.") if mk else ""
     _add(con, "F-NUMBERS", "data", 2,
-         "The CEO's and CFO's spoken numbers do not match the board numbers",
+         "The CEO's and CFO's spoken numbers do not match the board numbers" if not mk else
+         "Leaders' spoken numbers (ARR, burn, headcount, marketing spend) do not match the records",
          f"ARR was said as '42-45 crore' vs Rs {b['arr_cr']} Cr in the board update; burn as 'two point two' vs "
-         f"Rs {b['burn_lakh']:.0f} lakh/month; headcount as '180' (brief) vs {b['team']}. Leaders are quoting "
-         f"different numbers from the board's, so check figures before using them.",
-         "T1; T2; Board_Update_Jul-Sep_2026.pdf; Employee_Master.xlsx", "money")
+         f"Rs {b['burn_lakh']:.0f} lakh/month; headcount as '180' (brief) vs {b['team']}.{extra} Leaders are quoting "
+         f"different numbers from the records, so check figures before using them.",
+         "T1; T2; Board_Update_Jul-Sep_2026.pdf; Employee_Master.xlsx" + ("; T4; GL_Export_Apr-Sep_2026.xlsx" if mk else ""), "money")
 
 
 def sequence_gaps(con):
@@ -262,7 +499,8 @@ def sequence_gaps(con):
 
 
 def run_all(con):
-    for fn in (payroll_proration, vendor_lookalikes, cost_trends, payroll_flat, hiring, hiring_vs_board, atlas,
-               pulse_drops, departures, pending_requests, spoken_vs_data, sequence_gaps):
+    for fn in (payroll_proration, vendor_lookalikes, cost_trends, payroll_flat, hiring, hiring_vs_board, atlas, atlas_burn,
+               key_person, git_identities, oncall_load, launch_kit, contractor_invoice, pulse_drops, departures,
+               pending_requests, reorg_pending, spoken_vs_data, sequence_gaps):
         fn(con)
     con.commit()
