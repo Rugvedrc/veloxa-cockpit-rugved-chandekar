@@ -93,4 +93,55 @@ Rule used throughout: **system exports beat transcripts for facts; transcripts b
 - Pulse "Comments: Not shown: team smaller than 6" on every row is a privacy rule, not missing data.
 - Priya Nair has five half-day PM leaves in September. Not interpreted (D-16).
 
+## Day 3 additions (released Wed 18 Nov)
+
+### T4 - Head of Marketing call (Nikhil B., Speaker 2) - audio quality fair
+
+| # | Heard | Concluded | Evidence | Conf. |
+|---|---|---|---|---|
+| T4-1 | Marketing spend for the half is "one point eight" by his numbers; finance "counts things differently" | Unit missing; fits no simple reading. GL marketing is Rs 14.27 L. As Rs 18 L it exceeds the ledger by about 3.7 L (could be costs outside the exported cost centres); as Rs 1.8 Cr it is 12.6x. His sheet is not in the data. | GL MKT-EVT, MKT-PS; T4 | Low |
+| T4-2 | Summit "our best quarter ever for pipeline"; Manoj says the leads are cold | Both untestable: no CRM or lead export. Board: 212 registrations. | Board Jul-Sep | Low |
+| T4-3 | Summit budget "went a little over" | No budget exists in any file | GL | Low |
+| T4-4 | "Ayesha" runs paid search, "going great" | Aisha Khan (VX011). No results data to test "great". | Employee_Master R14; GL | High / Low |
+| T4-5 | Sid's launch kit "ready since July, just waiting on engineering" | Mostly true: kit v1, 21 Jul, deck/page/emails Ready; press note still Draft; launch date "planned 22 Sep" is now stale; owner has left | Atlas_Launch_Kit_v1; 05.eml | High |
+| T4-6 | "Hub Spot", "Linked in campaign manager" | HubSpot, LinkedIn Campaign Manager; neither is in the README or ledger | README; GL | Medium |
+| T4-7 | Marketing will "report into the new CRO, I hear" | Confirmed in intent by T6b; not in Keka or the tracker; no CRO exists | T6b; Employee_Master | Medium |
+
+### T5 - VP Engineering call (Vikram M., Ananya R.) - transcript cuts out for ~4 min at 11:20; **undated**
+
+| # | Heard | Concluded | Evidence | Conf. |
+|---|---|---|---|---|
+| T5-1 | v3 "on track, maybe a couple of weeks of buffer"; board date "still September-ish" | Jira: GA 15 Sep -> 15 Dec, changed 2 Sep by "vikram" (13 weeks); 115 of 233 points open. Because T5 is undated I cannot say he spoke after 2 Sep; the size of the gap (a couple of weeks vs 13) is the finding. | Jira Versions R2; Issues | Medium |
+| T5-2 | Main blocker: "incidents in August that pulled Snehal off" | True, but the person pulled off is **Sneha**: all 3 August SEV1s are hers and email 08 says she paused the Atlas perf tickets | Incidents R4, R6, R8; 08.eml | High |
+| T5-3 | "Snehal on SRE and on-call"; "Sneha" once, "unclear if same person" | Two people: Sneha Kulkarni (employee) and Snehal (contractor, S. Patil). The transcript merges them. | OnCall_Rota; Invoice PIS-114; Employee_Master | Medium |
+| T5-4 | Nobody is overloaded: "everyone's busy, that's startups" | Load is uneven: 56% of points and all after-hours commits with one engineer; the SRE on call 17 of 17 weeks | Jira; git_log; OnCall_Rota | Medium |
+| T5-5 | Arjun "remote from Pune now, reviews are slower" | Not testable (no review data). Commits fell from ~36 to ~24 a month but he has done 79% of his points | git_log; Jira | Low |
+| T5-6 | "We asked for two backend people and finance froze it" | Confirmed, and written down: the 2 Jun plan makes the GA date depend on the hires; the 12 Aug pause copied the CEO | 04.eml; 06.eml | High |
+| T5-7 | "Pria has been doing late nights but she likes it" | Late nights confirmed (none before June, then about 37% of commits); "likes it" is not in any record and is not inferred | git_log | High / n/a |
+| T5-8 | Rahul "joined Feb, ramping well" | Commits ramped; Jira tickets lag (4 of 11 done) | git_log; Jira | Medium |
+| T5-9 | "Jeera board", "pager duty", "Con fluence", Linear for a month | Jira, PagerDuty, Confluence (no data), Linear unconfirmed | Jira and incident exports exist | Medium |
+
+### T6b - CEO voice note
+Marketing "will report to the new CRO from next month. Or the month after." plus "Make sure the thing doesn't break when we move people around." A requirement, answered in VOICE_NOTES.md.
+
+### Revisions to earlier rows (originals kept)
+- **T2-9 / T3 hiring.** The 12 Aug pause email was copied to the CEO and the Talent Partner. My Day 2 loader dropped the Cc header; found by comparing the printed email copy.
+- **T1-8 (festive season).** Atlas GA is now 15 Dec in Jira, which is after any reading of "festive season".
+- **T4 / T1 numbers.** Nikhil's figure joins the CEO's and CFO's as one that does not match the records.
+
+### New contradictions between written sources
+| # | What disagrees | What I did |
+|---|---|---|
+| S-9 | 2 Jun plan: GA 15 Sep "if the two backend hires land by July" vs hires opened 18 May, paused 12 Aug, GA moved 2 Sep | Treated as one chain of events; reported together in the Atlas finding |
+| S-10 | Email 08 (24 Aug): contractor "starts this week" vs rota (17 Aug) and invoice PIS-108 (18 Aug) | A one-week inconsistency; I used the rota and the invoice, which agree with each other |
+| S-11 | Jira: nothing resolved after 17 Sep vs git: 191 commits since | Reported both, did not choose (DECISIONS D-23) |
+| S-12 | Board Jul-Sep says GA "moved"; Jira says to 15 Dec | Consistent; the board gave no date, Jira does |
+
+### Things that look like mistakes but may not be
+- The printed email copy (`Email_Printouts.pdf`) is identical to the `.eml` files for all 11 threads.
+- Invoice PIS-114 charges IGST, not CGST+SGST. Correct: the supplier's GSTIN state code is 27 (Maharashtra) and the place of supply is Karnataka, an inter-state sale. 18% of 1,20,000 is 21,600 and the total 1,41,600 is right.
+- Incident times are UTC: INC-205 opened 22 Aug 20:41Z, which is 23 Aug 02:11 IST.
+- Priya Nair's second git address is a no-reply form of her own name (D-20).
+- Jira lists assignees only as initials (a team setting, per the file's own note).
+
 *Revisions go here, newest first.*

@@ -48,6 +48,23 @@ Main tasks given to AI, where it was wrong, and what changed. Honest entries onl
 | 27 | A live agent (Rohan) invented a reason for the hiring pause ("until Atlas ships") | Live test | Prompt rule not to explain causes unless the records do; guard extended to number words |
 | 28 | A test forbade the word "reason" but my own caveat ("I don't infer reasons") contains it; another test mislabelled a principled refusal as "uncertain" | Test failures | Fixed the expectations and added a separate "decline" category |
 
+## 2026-11-18 (Day 3)
+
+**Tasks given to AI:** read all Day 3 material; analyse git, Jira, incidents and the rota; write loaders and findings; reconcile T4 and T5; build dated reporting lines and a reorganisation test for T6b; write tests, VOICE_NOTES and the Day 3 notes.
+
+| # | Mistake | How it was caught | Fix |
+|---|---|---|---|
+| 29 | My Day 2 loader dropped the Cc header, so the CEO's copy of the 12 Aug hiring pause was invisible | Reading the printed email copy next to the .eml files | Loader keeps Cc; claim C52 revises C28; finding and answers mention it |
+| 30 | First draft of the concentration finding said "103 of 588 since", mixing two denominators, and floored percentages (70% showed as 69%) | Re-reading the finding | Fixed the denominators and rounded properly |
+| 31 | Two findings hard-coded facts ("none were resolved in October", "hardening is the least finished epic") | Re-reading | Both are computed from the rows |
+| 32 | A nested "Snehal (S. Patil)" in parentheses and "owner left" when the data only says he was due to leave | Re-reading | Reworded to what the records say |
+| 33 | I defined `run_all` twice in checks.py, so the older list would have won | Noticed the new findings missing in a trial run | Removed the duplicate |
+| 34 | The first version of the T5 finding said the VP "contradicted himself". T5 is undated, so I cannot say he spoke after 2 Sep | Re-reading the transcript | Reworded to the size of the gap (a couple of weeks vs 13) and set Medium confidence |
+| 35 | "burn" matched "burnout" and the burn-rate answer fired; "burned out" missed the workload handler | Trying questions | Word boundaries and a wider workload pattern |
+| 36 | Handlers for launch kit, incidents and Jira answered with unrelated Atlas text before those files were released | Trying the same questions at 17 Nov | Explicit "I don't have X as of this date" answers |
+| 37 | The reorganisation test found that someone added to the data was not recognised by name until a rebuild, and that a department called "Revenue" was read as the revenue figure | `tests/test_reorg.py` | Name lookup also reads the people table; the revenue pattern is stricter |
+| 38 | A test forbade the word "Jira" in a Day 2 answer that correctly says Jira "isn't loaded yet" | Test failure | Test now checks for the Day 3 facts instead |
+
 **Things I decided myself, not the AI**
 - Which source to believe when they conflict: each entry in TRANSCRIPT_NOTES.md was reviewed by me; the AI proposed, I accepted or changed. (To be filled in with my own reasoning where I disagreed.)
 

@@ -34,8 +34,44 @@ On the 31 Oct data the three are:
 
 ---
 
-## T6b (Wed 18 Nov)
-*Not released yet.*
+### Update, Wed 18 Nov: what the top three looks like with the engineering data
+
+The screen recomputes from the records, so with Day 3 the order changed:
+
+1. **Atlas delivery is at risk** (act now). Jira has the GA date moved from 15 Sep to **15 Dec** (13 weeks), changed on 2 Sep; 115 of 233 story points are still open and nothing has been resolved since 17 Sep. Suggested owner: VP Engineering.
+2. **People** (act now). **One engineer owns 56% of the Atlas work**, and the on-call engineer was on the rota in all 17 weeks and handled every SEV1. Suggested owner: Head of People & Ops.
+3. **Money, books and numbers** (act now). The February overpayment, AWS cost growth, the possibly duplicated event vendor, and spoken numbers that do not match the records.
+
+This top three now names one engineer. That is deliberate and consistent with what I said above: it states **where the work sits** (a documented fact you also said on the first call, "Pria basically holds the routing thing together"), not what anyone intends. The cockpit still never names a flight risk, and the findings are tested for words like "quit", "resign" and "burn out".
+
+---
+
+## T6b (released Wed 18 Nov): "Marketing reports to the new CRO; don't let it break"
+
+**What you asked**
+
+> "So, marketing will report to the new CRO from next month. Or the month after, still finalising. Make sure the thing doesn't break when we move people around."
+
+**Decision: change made, with limits.**
+
+**What now happens.** Reporting lines are data with dates, not a fixed tree. Two kinds are kept apart:
+- **Current**, from Keka. Today Nikhil Bose reports to you.
+- **Planned**, from what has been said. Marketing is to report to the CRO in December 2026 or January 2027. It carries its source, its date window, and the fact that **no one is named**.
+
+Ask "Who does Nikhil report to?" and the answer gives both, with the planned line labelled "not yet in Keka". Ask "Who will marketing report to?" and it says what is known and what is not.
+
+**How I checked that it does not break.** `tests/test_reorg.py` takes a copy of the data and reorganises it the way the real company is about to: a CRO is hired, Marketing moves under them, Sales is renamed Revenue and moves too, a marketer changes team and manager, an engineer leaves, and the CFO's seat is vacated. Then it runs every test question, recomputes every finding, rebuilds the top three, and runs all 14 agents. Nothing raises, and the answers follow the moves ("Who reports to Zoya?", "Who is on the Revenue team?"). It found two real problems that I fixed: a newly added person was not recognised by name, and a department called "Revenue" was being read as the revenue figure.
+
+**Where I did not do exactly what you asked**
+
+1. **I did not apply the move early.** "Next month, or the month after, still finalising" is not a date. Until it is in Keka, the cockpit shows Nikhil reporting to you and shows the CRO line as planned. Treating a plan as a fact is how a dashboard starts to lie.
+2. **I did not guess who the CRO is.** There is no CRO in Keka and no CRO requisition in the hiring tracker. The cockpit says so. If you give me a name and a start date, it is one line in `data/curated/org_changes.json`.
+3. **I did not write an agent for the CRO.** The 14 agents are the 14 people who exist. When the CRO joins, they need a persona from someone who knows them; I will not invent one for a person who does not exist yet.
+4. **"Doesn't break" is proven for the logic, not for the data.** If Keka is slow to update, the cockpit will be slow to update too. The planned line is the bridge, and it is labelled as one.
+
+**How to check it.** `python cockpit.py ask "Who will marketing report to?"` and `python -m unittest tests.test_reorg -v`. The date selector shows that on 17 Nov there was no planned change on record.
+
+**Evidence in the repo.** `cockpit/org.py`, `data/curated/org_changes.json`, `tests/test_reorg.py`, decisions D-19 to D-23 in DECISIONS.md.
 
 ## T6c, T6d (Thu 19 Nov)
 *Not released yet.*

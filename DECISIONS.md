@@ -91,4 +91,22 @@ Claims, aliases and persona text each have a release date; a Day 1 database cont
 ## D-18 HR data is read as of the 31 Oct export
 The tracker, leave register and survey are all exported 31 Oct 2026, so "still open" means open on that date. Nothing says what happened after.
 
+## D-19 Naming people: concentration and load are facts, retention is not (amends D-16)
+Day 3 data shows one engineer owns 56% of the Atlas work and is the only one with after-hours commits, and another was on call every week. These are measurements of where work sits, already known to the CEO (T1: "Pria basically holds the routing thing together"), and hiding the names would hide the risk. So findings may name people for workload. They may **not** speculate about intent, health or leaving: no "flight risk", "burn out", "quit", "resign". Tests enforce the word list on the findings and the top three; the cockpit also answers "is X burned out?" with "I can't tell how anyone feels, only where the work sits".
+
+## D-20 Identity resolution: merge only on evidence, keep the evidence, leave ambiguity empty
+- Git: Priya Nair appears as `priya.n@veloxa.in` (425 commits) and `pnair@users.noreply.github.com` (163). Merged because both commit only to atlas-engine over the same dates, never within a minute of each other, with the same hours, and no other P. Nair exists. Medium-high confidence; recorded as an alias row with the reasoning, and a finding explains the effect (without the merge she would look like two people and her share would be 29%, not 40%).
+- "Snehal" vs "Sneha": two different people. Sneha Kulkarni (employee); Snehal is the on-call contractor billed as S. Patil. Evidence: both on the same rota weeks, no Keka record, invoice, first rota week matches the first billed day. Medium confidence.
+- Anything that resolves to more than one person stays NULL rather than being guessed (`resolve._one`).
+- Jira initials are matched through the same alias table (PN, RV, AD, SK), confirmed by the epic ownership in the VP's 2 Jun plan.
+
+## D-21 Reporting lines are dated; planned changes are never facts (response to T6b)
+`reporting_line` holds current lines (Keka) and planned lines (curated, with source, date window and possibly no named manager). Handlers read lines through `cockpit/org.py` and never hard-code a person, title or department; department names come from the data. `tests/test_reorg.py` reorganises a copy of the data and runs everything against it.
+
+## D-22 Times are stored in UTC and in IST, and the IST form is used for every human-facing statement
+PagerDuty and git are UTC. Converting to IST moves INC-205 from 22 Aug to 23 Aug and turns "late at night" into a real measure (22:00 to 06:00 IST). Both forms are kept so the conversion can be audited.
+
+## D-23 When two sources disagree about progress, report the disagreement
+Jira shows nothing resolved since 17 Sep; git shows 191 commits since. Commit messages carry no ticket keys, so they cannot be matched. The cockpit says both and gives Medium confidence on Atlas, instead of choosing one.
+
 *Revisions go here, newest first.*

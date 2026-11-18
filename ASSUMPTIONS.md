@@ -97,6 +97,36 @@ Source: Resignation_Letter_SM.pdf. Confidence: High that it is what he wrote.
 **A-26** | 2026-11-17 | Priya Nair's five September half-days are not interpreted as anything. They are shown as leave entries only.
 Source: Leave_Register.xlsx R14-R18. Confidence: n/a (deliberate non-inference, DECISIONS D-16).
 
+**A-27** | 2026-11-18 | Atlas GA is **15 Dec 2026** (was 15 Sep), changed on 2 Sep by "vikram", as Jira's Versions sheet says.
+Source: Jira_Export_ATLAS.xlsx Versions R2. Confidence: High that Jira says so; Medium that it is the real plan (Jira may lag). Would change my mind: a newer date from the board or the CEO.
+
+**A-28** | 2026-11-18 | The Jira export, git log and on-call rota are as of the 31 Oct export, though none carries its own date; pace and "needed pace" are measured to 31 Oct.
+Source: data_room/README.txt "Exported by IT on 31 Oct 2026"; the last commit is 30 Oct. Confidence: Medium.
+
+**A-29** | 2026-11-18 | Jira assignee initials PN, RV, AD, SK are Priya Nair, Rahul Verma, Arjun Das, Sneha Kulkarni.
+Source: Jira's own note that assignees are initials; the VP's 2 Jun plan (Priya core and re-routing, Rahul API, Arjun UI, Sneha hardening) matches the epic owners exactly. Confidence: High.
+
+**A-30** | 2026-11-18 | "Snehal" (rota, incidents, T5) is an **on-call contractor, S. Patil of Patil Infra Services**, and a different person from Sneha Kulkarni.
+Source: both names are on the same rota weeks; Keka has no Snehal; invoice PIS-114 bills "On-call SRE support, S. Patil"; PIS-108 starts 18 Aug, the first rota week with Snehal (17 Aug). One inconsistency: email 08 says the contractor starts the week of 24 Aug. Confidence: Medium. Would change my mind: a Keka or vendor record naming the contractor.
+
+**A-31** | 2026-11-18 | `pnair@users.noreply.github.com` is Priya Nair (a second git identity). Merged.
+Source: git_log.csv: both addresses commit only to atlas-engine, Nov 2025 to Oct 2026, never within a minute of each other, with the same hours; no other P. Nair exists. Confidence: Medium-high. Would change my mind: evidence that someone else uses that address. Effect if wrong: her share would be 29% of commits, not 40%.
+
+**A-32** | 2026-11-18 | "After hours" means a commit between 22:00 and 06:00 IST; times in the sources are UTC and are converted.
+Source: README, git_log, PagerDuty. Confidence: High on the conversion, a convention on the window.
+
+**A-33** | 2026-11-18 | "CRO" means Chief Revenue Officer, and "next month, or the month after" from 18 Nov means December 2026 or January 2027.
+Source: T4, T6b. Confidence: Medium. The sources only say "CRO" and give no date.
+
+**A-34** | 2026-11-18 | The August pro-rata on invoice PIS-108 (Rs 60,000 before GST for 14 days) may be high: calendar days give Rs 54,194. The contract basis is unknown.
+Source: Invoice_PIS-114.pdf, GL JV-0902. Confidence: Low. A 28-day basis gives exactly Rs 60,000.
+
+**A-35** | 2026-11-18 | Nikhil's "one point eight" cannot be given a unit. It fits no simple reading against Rs 14.27 L in the ledger, so it is reported as unreconciled, not corrected.
+Source: T4, GL. Confidence: Low.
+
+**A-36** | 2026-11-18 | The Atlas launch kit is only available as v1 (21 Jul); no later version is assumed to exist.
+Source: Atlas_Launch_Kit_v1.pdf. Confidence: Medium.
+
 ## Invented private lives (the data is silent here)
 
 All of these are fiction from data/curated/personas.json. Work facts always come from the data, never from this file. Each should be revised the moment a source contradicts it.
@@ -131,5 +161,15 @@ All of these are fiction from data/curated/personas.json. Work facts always come
 **REVISED 2026-11-17 - A-13 backend roles unfilled.** Confirmed by Hiring_Tracker (REQ-014/015 on hold since 12 Aug, 8 candidates, final round cancelled 14 Aug) and emails 06/07. High.
 
 **REVISED 2026-11-17 - A-P09 Arjun Das, A-P15 Rohan Banerjee, A-P04 Vikram Menon.** Persona text extended with Day 2 facts (remote request 18 Sep; relocation leave = the move to Pune; eight candidates waiting; "we'll absorb it"). Still fiction where it goes beyond the records.
+
+**REVISED 2026-11-18 - A-P07 Priya Nair (again).** Day 3 shows her late nights are real (commits between 22:00 and 06:00 IST from June) and that she owns 56% of the Atlas points. The Day 3 persona overlay now says so and keeps the recruiter and physiotherapy inventions, which stay fiction. Her half-day leaves are still not interpreted (A-26): the leave register and the commit hours are separate facts.
+
+**REVISED 2026-11-18 - A-P12 Sneha Kulkarni.** Day 1 said "considering leaving over on-call" was invented. The records now show she was on call every week and handled every SEV1, so on-call fatigue is grounded; "considering leaving" remains invented and is dropped from the overlay.
+
+**REVISED 2026-11-18 - A-P04 Vikram Menon.** The Day 3 overlay has him optimistic in conversation while his own Jira change moved the GA by 13 weeks. That reading is an invention to give him a voice; the records only show the two facts.
+
+**REVISED 2026-11-18 - A-P06 Nikhil Bose.** Day 1 "defensive about numbers" is now grounded in T4 ("finance counts things differently") and in his unreconcilable "one point eight". The CRO worry is invented.
+
+**REVISED 2026-11-18 - A-13 / A-09.** Email 06 was copied to the CEO and the Talent Partner (my Day 2 loader had dropped the Cc header). A-09 "Vicky" stays at Medium; nothing new on it.
 
 *Revisions go here, newest first.*

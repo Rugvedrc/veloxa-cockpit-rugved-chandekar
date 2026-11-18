@@ -15,6 +15,8 @@ Veloxa_Hackathon_Release_Packs  (folder or .zip, found at run time, never copied
 data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand by build.py)
    source | person | payroll* | gl_entry | board_update | message | document
    requisition | leave | pulse | resignation                                   (Day 2 HR material)
+   git_commit | incident | oncall | jira_issue/epic/version | invoice | launch_kit   (Day 3 engineering; times kept in UTC and IST)
+   contractor | reporting_line (current from Keka, planned from curated org_changes.json)   (identity and org, Day 3)
    alias  (every spelling of a person/vendor, with confidence and release date)
    claim  (curated transcript statements, our verdict, `disagrees`, `released_on`, `revises`)  <- data/curated/claims.json
    finding (computed issues, each with evidence refs and a theme)               <- checks.py
@@ -42,7 +44,10 @@ data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand b
 | Agents | Persona + facts from DB; LLM only if a key exists; replies with numbers (digits or words) not in the records are retried, then dropped; Day 2 persona revisions are overlays applied only once Day 2 exists | Works offline; stays consistent with the records and the date |
 | Top three | Findings carry a theme; themes ranked by max severity, then the CEO's stated concern, then count; rule shown on screen | Answers T6a without mixing unlike things (DECISIONS D-15) |
 | People risk | Team-level only; no named flight risks; survey comments never shown | Small teams are identifiable (DECISIONS D-16) |
-| Release dates | Claims, aliases, persona overlays and findings are all date-gated | A Day 1 database holds nothing from Day 2 (DECISIONS D-17) |
+| Release dates | Claims, aliases, persona overlays and findings are all date-gated | A Day 1 database holds nothing from Day 2 or 3 (DECISIONS D-17) |
+| Identities | Alias table with confidence; ambiguous matches stay empty; two git identities merged on evidence; a contractor kept separate from an employee with a similar name | DECISIONS D-20 |
+| Org | Dated reporting lines, current vs planned; no hard-coded names, titles or departments in handlers | A reorganisation test runs everything on a reshuffled copy (D-21, T6b) |
+| Disagreement | Jira vs git, VP vs Jira, spoken vs recorded: both sides are shown, not one picked | D-23 |
 
 ## Module map
 
@@ -56,19 +61,20 @@ data/veloxa_<release date>.db   (SQLite, ONE PER RELEASE DATE, built on demand b
 | `cockpit/checks.py` | Computed findings behind the worry view |
 | `cockpit/ask.py` | Intent handlers and fallback search |
 | `cockpit/worry.py` | Top-three themes and the ranking rule |
+| `cockpit/org.py` | Reporting lines with dates: current vs planned |
 | `cockpit/agents.py` | Agent context, LLM providers (NVIDIA, Groq, Anthropic), offline mode, memory |
 | `cockpit/server.py`, `ui.html` | Web UI and JSON API on 127.0.0.1 |
-| `tests/` | 54-question set, behaviour tests for Day 1 and Day 2, Python 3.9 compatibility guard |
+| `tests/` | 91-question set, behaviour tests for Days 1-3, the reorganisation test, Python 3.9 compatibility guard |
 
 ## Not built yet
 
-- Day 3-4 loaders (Jira, git log, incidents, on-call rota, launch kit, invoice, email printouts)
-- Responses to voice notes T6b (Wed 18 Nov), T6c and T6d (Thu 19 Nov); T6a is done (VOICE_NOTES.md)
-- Agent workload and history from Jira / on-call data (Day 3)
-- Living agents (stretch)
+- Responses to voice notes T6c and T6d (Thu 19 Nov); T6a and T6b are done (VOICE_NOTES.md). Day 4 has no data room files.
+- Living agents (stretch): agents that keep producing plausible activity after 31 Oct
+- Agents for people who do not exist yet (the CRO); deliberately not invented
 
 ## Change log
 
 - 2026-11-16 (early): initial architecture, Day 1 data only.
+- 2026-11-18: Day 3 data (git, Jira, incidents, on-call rota, launch kit, invoice, email printouts, T4, T5, T6b); Cc header captured; contractor and git-identity resolution; findings for Atlas date and remaining work, concentration, on-call load, launch kit and invoices; dated reporting lines and a reorganisation test (T6b); name lookup reads the people table; 91-question test set; `ANALYSED_THROUGH` moved to 2026-11-18.
 - 2026-11-17: Day 2 data (hiring tracker, leave register, pulse survey, resignation letter, 4 emails, T3, T6a); findings get themes; top-three home screen (T6a); claims, aliases and persona text become release-dated; `ANALYSED_THROUGH` moved to 2026-11-17; 54-question test set.
 - 2026-11-16 (final): data room found at run time (folder or zip); one database per release date with runtime "as of"; "sources disagree" signal; 35-question test set; Python 3.9 compatibility guard; stricter fallback search.
