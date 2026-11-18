@@ -7,6 +7,7 @@ have that" instead of guessing. An LLM is used only for the agent interviews (ag
 import re
 from collections import defaultdict
 
+from . import checks, org
 from .resolve import find_person
 from .worry import top_three
 
@@ -139,7 +140,8 @@ def h_headcount(con, q, ql):
 
 
 def h_arr(con, q, ql):
-    if not re.search(r"\barr\b|recurring revenue|revenue|customers", ql):
+    # 'revenue' alone is not enough: a department may be called Revenue (e.g. after a CRO joins)
+    if not re.search(r"\barr\b|recurring revenue|\bcustomers?\b|(?:our|total|annual|monthly|company)\s+revenue|how much revenue|revenue (?:growth|number|figure)s?", ql):
         return None
     rows = con.execute("SELECT * FROM board_update ORDER BY sent_on").fetchall()
     txt = "; ".join(f"{r['period']}: ARR Rs {r['arr_cr']} Cr, {r['customers']} customers" for r in rows)
@@ -152,7 +154,7 @@ def h_arr(con, q, ql):
 
 
 def h_burn(con, q, ql):
-    if not re.search(r"burn|runway|cash", ql):
+    if not re.search(r"\bburn\b|burn rate|runway|\bcash\b", ql):
         return None
     rows = con.execute("SELECT * FROM board_update ORDER BY sent_on").fetchall()
     txt = "; ".join(f"{r['period']}: burn Rs {r['burn_lakh']:.0f} L/month, runway {r['runway_months']} months" for r in rows)
@@ -176,7 +178,10 @@ def h_marketing(con, q, ql):
                  f"Google Ads {inr(ads['s'])} over {ads['n']} months.{per}",
                  [r["src_ref"] for r in ev] + ["GL_Export_Apr-Sep_2026.xlsx"], "Medium",
                  ["'Sapphire Events' and 'Saphire Event Mgmt' may be the same vendor; I kept them separate.",
-                  "The ledger is partial, and Nikhil's own figures aren't loaded, so I can't say whose total is right."])
+                  ("Nikhil's 'one point eight' (no unit) doesn't fit the ledger's Rs 14.27 L under any simple reading, and his sheet isn't in the data."
+                   if con.execute("SELECT 1 FROM claim WHERE id='C30'").fetchone() else
+                   "The ledger is partial, and Nikhil's own figures aren't loaded, so I can't say whose total is right.")],
+                 disagreements(con, "marketing_spend"))
 
 
 def h_cloud(con, q, ql):
@@ -213,6 +218,11 @@ def h_hiring(con, q, ql):
              line("Filled", "Filled"), line("Closed - not hired", "Closed")]
     opened = [r for r in reqs if r["status"] == "Open"]
     lead = (f"Partly. {len(held)} roles are on hold and {len(opened)} are open. " if re.search(r"paus|freeze|frozen", ql) and held else "")
+    pm = con.execute("SELECT cc FROM message WHERE subject LIKE '%Pausing%' ORDER BY sent_at LIMIT 1").fetchone()
+    if pm and pm["cc"] and "ananya" in pm["cc"].lower() and re.search(r"\bceo\b|ananya|\btold\b|\bknow\b|aware|copied|\bcc\b", ql):
+        plan = con.execute("SELECT 1 FROM message WHERE subject='Atlas plan'").fetchone()
+        lead = ("Yes: the CEO and the Talent Partner were copied on the CFO's 12 Aug pause email"
+                + (", and the CEO had been told on 2 Jun that the GA date depended on the two hires" if plan else "") + ". ") + lead
     return reply(lead + "Hiring tracker (31 Oct export): " + ". ".join(p for p in parts if p) + ".",
                  [r["src_ref"] for r in reqs], "High",
                  ["The two backend roles were paused by the CFO on 12 Aug 'until the round closes'.",
@@ -316,8 +326,13 @@ def h_atlas(con, q, ql):
     if not re.search(r"atlas|routing|launch|\bga\b|v3|festive|release date|ship", ql):
         return None
     f = con.execute("SELECT * FROM finding WHERE id='F-ATLAS'").fetchone()
-    return reply(f"{f['title']}. {f['detail']}", ["Board_Update_Apr-Jun_2026.pdf", "Board_Update_Jul-Sep_2026.pdf"], "Medium",
-                 ["Jira, git and the launch kit aren't loaded yet; this is only what the board and the call said."])
+    burn = con.execute("SELECT * FROM finding WHERE id='F-ATLAS-BURN'").fetchone()
+    if not burn:  # before Jira exists
+        return reply(f"{f['title']}. {f['detail']}", ["Board_Update_Apr-Jun_2026.pdf", "Board_Update_Jul-Sep_2026.pdf"], "Medium",
+                     ["Jira, git and the launch kit aren't loaded yet; this is only what the board and the call said."])
+    return reply(f"{f['title']}. {f['detail']} Work left: {burn['title']}.", f["evidence"].split("; ") + ["Jira_Export_ATLAS.xlsx"], "Medium",
+                 ["Jira may lag the work: commit messages carry no ticket keys, so tickets and code can't be matched.",
+                  "The VP Engineering's 'a couple of weeks of buffer' is on the Conflicts tab."], disagreements(con, "atlas"))
 
 
 def h_vendor(con, q, ql):
@@ -339,10 +354,12 @@ def h_conflicts(con, q, ql):
 
 
 def h_team(con, q, ql):
-    m = re.search(r"\b(engineering|finance|marketing|people|hr|sales|support|leadership)\b", ql)
-    if not m:
+    # departments come from the data, so a new or renamed department needs no code change
+    depts = {d[0].lower(): d[0] for d in con.execute("SELECT DISTINCT dept FROM person WHERE dept IS NOT NULL")}
+    depts.update({"hr": "People & Ops", "people": "People & Ops", "ops": "People & Ops"} if "people & ops" in depts else {})
+    key = next((v for k, v in sorted(depts.items(), key=lambda kv: -len(kv[0])) if re.search(r"\b%s\b" % re.escape(k), ql)), None)
+    if not key:
         return None
-    key = {"hr": "People & Ops", "people": "People & Ops"}.get(m.group(1), m.group(1).title())
     rows = con.execute("SELECT * FROM person WHERE dept=? ORDER BY join_date", (key,)).fetchall()
     if not rows:
         return None
@@ -356,7 +373,8 @@ def h_person(con, q, ql):
     if not emp:
         return None
     p = con.execute("SELECT * FROM person WHERE emp_id=?", (emp,)).fetchone()
-    mgr = con.execute("SELECT full_name FROM person WHERE emp_id=?", (p["manager_id"],)).fetchone()
+    m = org.manager_of(con, emp)
+    mgr = m["current"]
     mails = con.execute("SELECT * FROM message WHERE sender LIKE ? OR recipient LIKE ?",
                         (f"%{p['email']}%", f"%{p['email']}%")).fetchall()
     fnds = con.execute("SELECT title FROM finding WHERE id LIKE ? OR evidence LIKE ?",
@@ -364,6 +382,15 @@ def h_person(con, q, ql):
     txt = (f"{p['full_name']} is {p['title']} in {p['dept']}, based in {p['location']}, "
            f"joined {p['join_date']}" + (f", reports to {mgr['full_name']}" if mgr else "") +
            f", status {p['status']}" + (f" (last day {p['exit_date']})" if p["exit_date"] else "") + ".")
+    for line in m["planned"]:
+        txt += f" Planned (not yet in Keka): {org.planned_text(line)}."
+    jp = con.execute("SELECT COUNT(*) n, COALESCE(SUM(points),0) pts, COALESCE(SUM(CASE WHEN status='Done' THEN points END),0) done "
+                     "FROM jira_issue WHERE emp_id=?", (emp,)).fetchone()
+    if jp["n"]:
+        txt += f" In the Atlas Jira: {jp['n']} tickets, {jp['pts']} points, {jp['done']} done."
+    wk = con.execute("SELECT COUNT(*) FROM oncall WHERE primary_id=? OR secondary_id=?", (emp, emp)).fetchone()[0]
+    if wk:
+        txt += f" On the on-call rota in {wk} of {con.execute('SELECT COUNT(*) FROM oncall').fetchone()[0]} weeks."
     if mails:
         txt += f" Appears in {len(mails)} email(s) in the data room."
     if fnds:
@@ -372,7 +399,167 @@ def h_person(con, q, ql):
                  ["To talk to them directly, use the People view."])
 
 
-HANDLERS = [h_privacy, h_prediction, h_worry, h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
+ORG_RE = (r"\breport(?:s|ing)?\s+(?:to|into)\b|who manages|\bmanager of\b|\bmy manager\b|org chart|\bcro\b|chief revenue|"
+          r"direct reports|\breorg|restructur|reporting line")
+
+
+def h_org(con, q, ql):
+    """Who reports to whom. Current lines come from Keka; planned moves are shown apart and never as fact."""
+    if not re.search(ORG_RE, ql):
+        return None
+    emp = find_person(con, q)
+    planned = [dict(r) for r in con.execute("""SELECT l.*, p.full_name, p.title FROM reporting_line l JOIN person p USING(emp_id)
+                                                WHERE l.status='planned' ORDER BY l.from_date""")]
+    note = "Planned changes are not in Keka; I show them separately and never as fact."
+    if emp:
+        p = con.execute("SELECT * FROM person WHERE emp_id=?", (emp,)).fetchone()
+        if re.search(r"who\s+reports?\s+to|direct reports|who works for|reports? to (?:him|her|them)", ql):
+            rs = org.reports_of(con, emp)
+            txt = "; ".join(f"{r['full_name']} ({r['title']})" for r in rs) or "no one"
+            return reply(f"{p['full_name']}'s direct reports in Keka: {txt}.", [p["src_ref"]] + [r["src_ref"] for r in rs], "High",
+                         [note] if con.execute("SELECT 1 FROM reporting_line WHERE status='planned'").fetchone() else [])
+        m = org.manager_of(con, emp)
+        cur = (f"{p['full_name']} ({p['title']}) reports to {m['current']['full_name']} ({m['current']['title']}) in Keka."
+               if m["current"] else f"{p['full_name']} ({p['title']}) has no manager recorded in Keka.")
+        extra = "".join(f" Planned (not yet in Keka): {org.planned_text(line)}." for line in m["planned"])
+        return reply(cur + extra, [p["src_ref"]] + (["T6b_CEO_Voice_Note.docx"] if m["planned"] else []), "High", [note] if m["planned"] else [],
+                     [])
+    if planned:
+        txt = " ".join(f"{x['full_name']} ({x['title']}) is planned (not yet in Keka) {org.planned_text(x)}. {x['note']}" for x in planned)
+        return reply(f"Planned reporting changes: {txt}", ["T6b_CEO_Voice_Note.docx", "T4_Head_of_Marketing_Call.docx"], "Medium",
+                     [note, "No CRO exists in Keka or the hiring tracker, so I can't say who it will be or confirm the date."])
+    if re.search(r"\bwill\b|planned|going to|\bnew\b|\bcro\b|chief revenue|reorg|restructur", ql):
+        return reply("No planned reporting change is on record as of this date.", ["Employee_Master.xlsx"], "Medium",
+                     ["Keka shows today's reporting lines only; a planned change appears once someone has said it will happen."])
+    ceo = con.execute("SELECT emp_id, full_name FROM person WHERE manager_id IS NULL AND status='Active' LIMIT 1").fetchone()
+    if ceo:
+        rs = org.reports_of(con, ceo["emp_id"])
+        return reply(f"At the top is {ceo['full_name']}; direct reports: " + "; ".join(f"{r['full_name']} ({r['title']})" for r in rs) + ".",
+                     ["Employee_Master.xlsx"], "High", ["No reporting changes are on record."])
+    return reply("I don't have reporting lines in the data.", [], "None")
+
+
+def h_workload(con, q, ql):
+    if not re.search(r"overload|overwork|burn(?:ed|t)?.?out|workload|stretched|\bcapacity\b|\bbusy\b|bus factor|key.?person|single point|carrying|exhaust|too much on", ql):
+        return None
+    fs = [r for r in (con.execute("SELECT * FROM finding WHERE id=?", (i,)).fetchone() for i in ("F-KEYPERSON", "F-ONCALL")) if r]
+    if not fs:
+        return None  # before the engineering exports exist there is nothing to measure
+    lead = "I can't tell how anyone feels, only where the work sits. " if re.search(r"burn(?:ed|t)?.?out|feel|exhaust|stress|tired|happy", ql) else ""
+    # titles carry the numbers; the worry view has the full detail
+    return reply(lead + " ".join(f"{f['title']}." for f in fs) + " The worry view has the detail.",
+                 [e for f in fs for e in f["evidence"].split("; ")[:2]], "Medium",
+                 ["This measures where the work sits, not how anyone feels; there are no survey comments to say.",
+                  "The VP Engineering said 'everyone's busy, that's startups'; the data shows the load is uneven."],
+                 disagreements(con, "workload"))
+
+
+def h_contractor(con, q, ql):
+    if not re.search(r"snehal|contractor|patil|invoice|\bpis-\d+|retainer", ql):
+        return None
+    c = con.execute("SELECT * FROM contractor LIMIT 1").fetchone()
+    inv = con.execute("SELECT * FROM invoice LIMIT 1").fetchone()
+    if not c:
+        return None
+    bits = [f"{c['name']} is the on-call contractor ({c['role']}), not an employee: Keka has no Snehal, and the on-call rota lists "
+            f"'Snehal' and 'Sneha' (Sneha Kulkarni, SRE) in the same weeks."]
+    if inv:
+        bits.append(f"{inv['invoice_no']} ({inv['invoice_date']}): Rs {inv['base']:,} monthly retainer + Rs {inv['tax']:,} IGST = Rs {inv['total']:,} for September.")
+    pro = con.execute("SELECT * FROM gl_entry WHERE vendor_id=? ORDER BY txn_date", (c["vendor_id"],)).fetchall()
+    if pro:
+        bits.append("In the ledger: " + "; ".join(f"{g['ref']} {g['txn_date']} {inr(g['amount'])} ({g['narration']})" for g in pro) + ".")
+    return reply(" ".join(bits), ["OnCall_Rota.xlsx"] + ([inv["src_ref"]] if inv else []) + [g["src_ref"] for g in pro], "Medium",
+                 ["Identifying 'Snehal' as the contractor is an inference from the rota, the invoice and email 08 (medium confidence).",
+                  "The transcripts blur Sneha and Snehal, so what 'Snehal' did in T5 is ambiguous."])
+
+
+def h_incidents(con, q, ql):
+    if not re.search(r"incident|\bsev ?[123]\b|outage|pager|on.?call|\brota\b", ql):
+        return None
+    inc = con.execute("SELECT * FROM incident ORDER BY opened_ist").fetchall()
+    if not inc:
+        return reply("I don't have incident or on-call data as of this date.", [], "None")
+    sev = defaultdict(int)
+    who = defaultdict(int)
+    for i in inc:
+        sev[i["severity"]] += 1
+        raw = i["responder_raw"] + (" (contractor)" if (i["responder_id"] or "").startswith("X") else "")
+        who[raw] += 1
+    sev1 = [i for i in inc if i["severity"] == "SEV1"]
+    weeks = con.execute("SELECT * FROM oncall").fetchall()
+    on = defaultdict(lambda: [0, 0])
+    for w in weeks:
+        on[w["primary_raw"]][0] += 1
+        on[w["secondary_raw"]][1] += 1
+    rota = "; ".join(f"{k} {v[0] + v[1]} of {len(weeks)} weeks ({v[0]} primary)" for k, v in sorted(on.items(), key=lambda kv: -(kv[1][0] + kv[1][1])))
+    txt = (f"{len(inc)} incidents Aug-Oct 2026 (times converted from UTC to IST): " + ", ".join(f"{n} {k}" for k, n in sorted(sev.items())) +
+           f". Responders: " + ", ".join(f"{k} {n}" for k, n in sorted(who.items(), key=lambda kv: -kv[1])) +
+           f". SEV1s: " + "; ".join(f"{i['id']} {i['opened_ist'][:10]} ({i['hours']:.1f} h, {i['responder_raw']})" for i in sev1) +
+           f". On call: {rota}.")
+    return reply(txt, [i["src_ref"] for i in sev1] + ["OnCall_Rota.xlsx"], "High",
+                 ["'Snehal' is read as the on-call contractor (medium confidence); 'Sneha' is the employee.",
+                  "Weeks on call count primary or secondary; the rota is a copied wiki table."])
+
+
+def h_launchkit(con, q, ql):
+    if not re.search(r"launch kit|press note|launch deck|launch page|\bkit\b|launch assets", ql):
+        return None
+    rows = con.execute("SELECT * FROM launch_kit").fetchall()
+    if not rows:
+        return reply("I don't have the launch kit in the data as of this date.", [], "None")
+    f = con.execute("SELECT * FROM finding WHERE id='F-LAUNCHKIT'").fetchone()
+    assets = "; ".join(f"{r['asset']}: {r['status']}" for r in rows)
+    rest = ("Jira now has" + f["detail"].split("Jira now has", 1)[1]) if f and "Jira now has" in f["detail"] else (f["detail"] if f else "")
+    return reply(f"Atlas launch kit {rows[0]['version']} (owner {rows[0]['owner_raw']}, {rows[0]['dated']}): {assets}. {rest}",
+                 [rows[0]["src_ref"], "05.eml"], "High", ["Only v1 was supplied; a later version may exist."])
+
+
+def h_jira(con, q, ql):
+    if not re.search(r"\bjira\b|story points?|tickets?|backlog|velocity|burn.?down|remaining work|how much work|open issues|\bepics?\b", ql):
+        return None
+    s = checks.jira_stats(con)
+    if not s:
+        return reply("I don't have the Jira export as of this date.", [], "None")
+    own = defaultdict(lambda: [0, 0])
+    for i in s["issues"]:
+        own[i["emp_id"]][1] += i["points"]
+        if i["status"] != "Done":
+            own[i["emp_id"]][0] += i["points"]
+    names = {r["emp_id"]: r["full_name"] for r in con.execute("SELECT emp_id, full_name FROM person")}
+    by_owner = "; ".join(f"{names.get(k, k)} {o}/{t}" for k, (o, t) in sorted(own.items(), key=lambda kv: -kv[1][0]))
+    txt = (f"Atlas Jira (31 Oct export): {len(s['issues'])} tickets, {s['tot']} story points; {s['done_pts']} done, {s['rem']} open "
+           f"({len(s['open'])} tickets). GA is set for {s['ga']} (was {s['v']['original_release_date']}). Nothing resolved since {s['last']}. "
+           f"Open/total points by owner: {by_owner}. Finishing by GA needs about {s['need']:.0f} points a week; the pace since 1 Jul was about "
+           f"{s['pace']:.1f}.")
+    return reply(txt, [s["v"]["src_ref"], "Jira_Export_ATLAS.xlsx"], "Medium",
+                 ["Jira may lag the work: commit messages carry no ticket keys, so tickets and code can't be matched."],
+                 disagreements(con, "atlas"))
+
+
+def h_git(con, q, ql):
+    if not re.search(r"\bcommits?\b|\bgit\b|github|\brepos?\b|\bcode\b|after.?hours|late.?nights?|night commits|weekend", ql):
+        return None
+    rows = con.execute("""SELECT g.emp_id, p.full_name, COUNT(*) c, COUNT(DISTINCT g.author_email) ids FROM git_commit g
+                          LEFT JOIN person p USING(emp_id) GROUP BY g.emp_id ORDER BY c DESC""").fetchall()
+    if not rows:
+        return None
+    total = sum(r["c"] for r in rows)
+    repos = ", ".join(f"{r[0]} {r[1]}" for r in con.execute("SELECT repo, COUNT(*) FROM git_commit GROUP BY repo ORDER BY 2 DESC"))
+    txt = (f"{total:,} commits, Nov 2025 - Oct 2026: " + "; ".join(
+        f"{r['full_name'] or 'unmatched'} {r['c']}" + (f" ({r['ids']} git identities merged)" if r["ids"] > 1 else "") for r in rows) + f". By repo: {repos}.")
+    if re.search(r"after.?hours|late|night|weekend", ql):
+        late = con.execute("""SELECT p.full_name, COUNT(*) c, MIN(g.committed_ist) first FROM git_commit g LEFT JOIN person p USING(emp_id)
+                              WHERE CAST(substr(g.committed_ist, 12, 2) AS INT) >= 22 OR CAST(substr(g.committed_ist, 12, 2) AS INT) < 6
+                              GROUP BY g.emp_id""").fetchall()
+        txt += (" After-hours commits (22:00-06:00 IST): " + ("; ".join(f"{r['full_name']} {r['c']}, first on {r['first'][:10]}" for r in late) or "none") +
+                ". Everyone else: none.")
+    return reply(txt, ["git_log.csv"], "High",
+                 ["One engineer appears under two git addresses; I merged them (medium-high confidence).",
+                  "Commit messages carry no ticket keys, so commits can't be tied to Jira tickets."])
+
+
+HANDLERS = [h_privacy, h_prediction, h_worry, h_org, h_workload, h_contractor, h_incidents, h_launchkit, h_jira, h_git,
+            h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
             h_cloud, h_hiring, h_attrition, h_pulse, h_leave, h_atlas, h_vendor, h_conflicts, h_team, h_person]
 
 
