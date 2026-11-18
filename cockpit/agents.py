@@ -71,6 +71,32 @@ def grounded_facts(con, emp):
         was = f" (was {rows[1]['engagement']})" if len(rows) > 1 else ""
         facts.append((f"My team's latest pulse ({now['quarter']}): engagement {now['engagement']}{was}, {now['responses']} of "
                       f"{now['team_size']} responded. Survey comments are hidden because the team is under 6 people.", now["src_ref"]))
+    # Day 3 material: their own engineering work and on-call load, and reporting changes that touch their team
+    jp = con.execute("SELECT COUNT(*) n, COALESCE(SUM(points),0) pts, COALESCE(SUM(CASE WHEN status='Done' THEN points END),0) done "
+                     "FROM jira_issue WHERE emp_id=?", (emp,)).fetchone()
+    if jp["n"]:
+        facts.append((f"In the Atlas Jira I own {jp['n']} tickets, {jp['pts']} story points, {jp['done']} done.", "Jira_Export_ATLAS.xlsx"))
+    cm = con.execute("SELECT COUNT(*) n, MIN(substr(committed_ist,1,10)) a, MAX(substr(committed_ist,1,10)) b FROM git_commit WHERE emp_id=?", (emp,)).fetchone()
+    if cm["n"]:
+        facts.append((f"I have made {cm['n']} commits between {cm['a']} and {cm['b']}.", "git_log.csv"))
+    wk = con.execute("SELECT SUM(primary_id=?) pr, COUNT(*) n FROM oncall WHERE primary_id=? OR secondary_id=?", (emp, emp, emp)).fetchone()
+    if wk["n"]:
+        facts.append((f"I was on the on-call rota in {wk['n']} of {con.execute('SELECT COUNT(*) FROM oncall').fetchone()[0]} weeks "
+                      f"({wk['pr'] or 0} as primary).", "OnCall_Rota.xlsx"))
+    ic = con.execute("SELECT COUNT(*) n, SUM(severity='SEV1') s1 FROM incident WHERE responder_id=?", (emp,)).fetchone()
+    if ic["n"]:
+        facts.append((f"I responded to {ic['n']} incidents Aug-Oct, {ic['s1'] or 0} of them SEV1.", "Incidents_Aug-Oct_2026.xlsx"))
+    kit = con.execute("SELECT * FROM launch_kit WHERE owner_id=?", (emp,)).fetchall()
+    if kit:
+        facts.append((f"I own the Atlas launch kit {kit[0]['version']} ({kit[0]['dated']}): " +
+                      "; ".join(f"{k['asset']}: {k['status']}" for k in kit) + ".", kit[0]["src_ref"]))
+    ver = con.execute("SELECT * FROM jira_version ORDER BY last_changed DESC LIMIT 1").fetchone()
+    if ver and p["dept"] == "Engineering":
+        facts.append((f"Jira has the Atlas GA on {ver['release_date']}; it was {ver['original_release_date']} until {ver['last_changed']}.", ver["src_ref"]))
+    mgr = con.execute("SELECT manager_id FROM reporting_line WHERE emp_id=? AND status='current'", (emp,)).fetchone()
+    for pl in con.execute("SELECT * FROM reporting_line WHERE status='planned' AND (emp_id=? OR emp_id=?)", (emp, mgr["manager_id"] if mgr else "")):
+        facts.append((f"It has been said that {'my team' if pl['emp_id'] != emp else 'I'} will report to the {pl['manager_title']} from "
+                      f"{pl['from_date'][:7]} or {(pl['to_date'] or pl['from_date'])[:7]}; nobody has been named and it is not final.", "T6b_CEO_Voice_Note.docx"))
     ini = "".join(w[0] for w in p["full_name"].split()[:2]).upper()
     n = con.execute("SELECT COUNT(*) FROM gl_entry WHERE entered_by=?", (ini,)).fetchone()[0]
     if n and p["dept"] == "Finance":
@@ -88,9 +114,10 @@ def company_facts(con):
 def persona(con, emp):
     """The persona as of the database's date: *_d2 overlays apply only once Day 2 material is present."""
     base = dict(PERSONAS[emp])
-    if con.execute("SELECT COUNT(*) FROM leave").fetchone()[0]:
-        for k in [k for k in base if k.endswith("_d2")]:
-            base[k[:-3]] = base[k]
+    for suffix, table in (("_d2", "leave"), ("_d3", "jira_issue")):  # each overlay applies once its day's data exists
+        if con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]:
+            for k in [k for k in base if k.endswith(suffix)]:
+                base[k[:-3]] = base[k]
     return base
 
 

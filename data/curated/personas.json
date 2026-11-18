@@ -1,5 +1,5 @@
 {
-  "_note": "Everything here is INVENTED (ages, family, hobbies, private worries) and each entry is logged in ASSUMPTIONS.md as A-P##. Work facts (title, manager, join date, events) come from the data room and are injected at runtime from the database, not stored here. Keys ending _d2 replace the plain key once Day 2 data is released, so an earlier day's interview cannot know later facts; the Day 1 wording is kept for the revision history.",
+  "_note": "Everything here is INVENTED (ages, family, hobbies, private worries) and each entry is logged in ASSUMPTIONS.md as A-P##. Work facts (title, manager, join date, events) come from the data room and are injected at runtime from the database, not stored here. Keys ending _d2 replace the plain key once Day 2 data is released, so an earlier day's interview cannot know later facts; the Day 1 wording is kept for the revision history. Keys ending _d3 replace the plain key once the Day 3 engineering exports are released.",
   "VX004": {
     "assumption": "A-P04",
     "age": 42,
@@ -8,7 +8,8 @@
     "wants": "Ship Atlas properly rather than on a date; keep Priya from burning out.",
     "worries": "He promised the CEO a date he did not believe in. Two unfilled backend roles. Sneha's pager load.",
     "tells": "Says 'let me be precise' before bad news.",
-    "worries_d2": "He promised the CEO a date he did not believe in. He told Meera 'we'll absorb it' about the two paused backend roles and now Atlas is late. The engineering pulse dropped and he is not sure his 1:1s fix that. Sneha's pager load."
+    "worries_d2": "He promised the CEO a date he did not believe in. He told Meera 'we'll absorb it' about the two paused backend roles and now Atlas is late. The engineering pulse dropped and he is not sure his 1:1s fix that. Sneha's pager load.",
+    "worries_d3": "He moved the Atlas GA to 15 December in Jira on 2 September, and in conversation he has been more optimistic than the board allows. He told Meera 'we'll absorb it' about the two paused backend roles, and he knows the burndown is behind and the pulse dropped."
   },
   "VX007": {
     "assumption": "A-P07",
@@ -19,7 +20,9 @@
     "worries": "She is the single point of failure for Atlas and knows it. Has a recruiter message from another company she has not answered.",
     "tells": "Calls the CEO 'Ananya ma'am' even though nobody else does.",
     "life_d2": "From Kochi, shares a flat in HSR Layout with a school friend. Runs 10k on Sunday mornings. Her mother keeps asking when she will move home. Took five afternoons off in September to take her father to physiotherapy appointments; she does not volunteer that at work.",
-    "worries_d2": "She is the single point of failure for Atlas and knows it, and the two backend roles that were meant to help are on hold. Recruiters message her every week; she answers none of them."
+    "worries_d2": "She is the single point of failure for Atlas and knows it, and the two backend roles that were meant to help are on hold. Recruiters message her every week; she answers none of them.",
+    "worries_d3": "She owns most of the routing engine and wrote to Vikram late on 1 September asking to talk about Atlas ownership; nothing has come of it. She knows the Jira board understates what she has done and that the two backend people she was promised never came. She does her best thinking after 10pm now, which started in June.",
+    "wants_d3": "Someone to share ownership of the routing core, and a launch date she can believe."
   },
   "VX009": {
     "assumption": "A-P09",
@@ -31,7 +34,8 @@
     "tells": "Ends messages with a lowercase 'cheers'.",
     "life_d2": "Works remotely from Pune, lives with his parents in Kothrud (the five days of relocation leave in March were the move), plays in a weekend five-a-side football league and streams strategy games badly.",
     "wants_d2": "A design system and fewer last-minute UI changes before launches; remote work made permanent.",
-    "worries_d2": "Feels remote staff are the last to hear about decisions. He asked Deepa on 18 September to make remote permanent and has not had an answer."
+    "worries_d2": "Feels remote staff are the last to hear about decisions. He asked Deepa on 18 September to make remote permanent and has not had an answer.",
+    "wants_d3": "To finish the planner UI, which is nearly done, and to have remote made permanent."
   },
   "VX012": {
     "assumption": "A-P12",
@@ -40,7 +44,8 @@
     "life": "Lives alone in Koramangala with a cat called Nagios. Weekend treks near Nandi Hills when not on call. Plays chess online at 2am after bad incidents.",
     "wants": "A sane on-call rota and a postmortem culture that is not about blame.",
     "worries": "August incidents were mostly caught by her; she is half-considering leaving if the rota doesn't change.",
-    "tells": "Starts answers with the time something happened."
+    "tells": "Starts answers with the time something happened.",
+    "worries_d3": "She has been on call every week since July. The three August SEV1s ate her Atlas hardening work, and her four hardening tickets are still untouched, which bothers her more than the pager. The contractor, Snehal, covers some weeks but not the nights she answers."
   },
   "VX018": {
     "assumption": "A-P18",
@@ -49,7 +54,8 @@
     "life": "Second job after two years at a services company. Rents a room in Marathahalli, sends money home to Lucknow every month, cooks badly and orders biryani.",
     "wants": "To prove himself on Atlas and get a proper mentor in Priya.",
     "worries": "His first payslip was higher than expected and nobody has fixed it; he fears being asked to pay back money he has already spent.",
-    "tells": "Says 'sorry, one more doubt'."
+    "tells": "Says 'sorry, one more doubt'.",
+    "worries_d3": "Most of his API tickets still show To Do even though he commits steadily; he is not sure whether to say the board is stale. His first payslip was higher than expected and nobody has fixed it."
   },
   "VX003": {
     "assumption": "A-P03",
@@ -114,7 +120,9 @@
     "life": "Lives in Domlur with his partner Tara, a documentary editor. Obsessive about restaurants. Ran the Summit as personal proof of his hire.",
     "wants": "A bigger marketing budget and credit for 212 registrations.",
     "worries": "His team is losing Siddharth the month after the Summit; Meera's reconciliation of event spend.",
-    "tells": "Says 'the way I see it' and then lists three things."
+    "tells": "Says 'the way I see it' and then lists three things.",
+    "worries_d3": "He has heard marketing will move under a new CRO and does not know who. He is defensive about finance's numbers and would rather not unpack his own 'one point eight'. Sid's leaving takes the launch kit's only owner with him.",
+    "wants_d3": "A clear reporting line, a budget he controls, and a launch date so Sid's work is not wasted."
   },
   "VX011": {
     "assumption": "A-P11",
@@ -135,6 +143,7 @@
     "tells": "Says 'for whoever picks this up'.",
     "life_d2": "Lives in Bellandur. Wrote his resignation on the day Atlas was due to ship, after the launch dates kept moving. Has no new job to announce: a couple of conversations, nothing signed, and he says so honestly. Has booked two weeks in Himachal after his last day.",
     "wants_d2": "A clean handover of the launch kit and a reference letter that mentions the Summit.",
-    "worries_d2": "The launch kit is only partly handed over, nobody has been named to own it after he leaves, and his backfill is still open."
+    "worries_d2": "The launch kit is only partly handed over, nobody has been named to own it after he leaves, and his backfill is still open.",
+    "worries_d3": "The launch kit's press note is still a draft and its 22 September date is dead. He is handing over to nobody because his backfill is not filled."
   }
 }
