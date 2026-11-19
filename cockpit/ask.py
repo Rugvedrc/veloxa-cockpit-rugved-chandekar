@@ -6,8 +6,9 @@ have that" instead of guessing. An LLM is used only for the agent interviews (ag
 """
 import re
 from collections import defaultdict
+from datetime import date
 
-from . import checks, org
+from . import checks, events, impact, org
 from .resolve import find_person
 from .worry import top_three
 
@@ -64,13 +65,23 @@ def h_prediction(con, q, ql):
     """Forecasts about people ('will X quit?', 'who is a flight risk?') can't be supported by this data."""
     named = re.search(r"\bwill\b.*\b(quit|leave|resign)|going to (quit|leave|resign)|about to (quit|leave|resign)", ql)
     generic = re.search(r"flight risk|likely to (quit|leave|resign)|who (might|may|could) (quit|leave|resign)|"
-                        r"at risk of (leaving|quitting)|next to (leave|quit|resign)|worried about.*(engineer|person|employee)", ql)
+                        r"at risk of (leaving|quitting)|next to (leave|quit|resign)|worried about.*(engineer|person|employee)|"
+                        r"\brank(?:ed|ing)?\b.*\b(?:quit|leav|resign|flight)|list of .*\b(?:quit|leav|resign)|who(?:'s| is) going to (?:quit|leave)", ql)
     if not (named or generic):
         return None
     emp = find_person(con, q)
     gone = con.execute("SELECT full_name, exit_date, src_ref FROM person WHERE status != 'Active'").fetchall()
     who = con.execute("SELECT full_name FROM person WHERE emp_id=?", (emp,)).fetchone() if emp else None
-    known = "; ".join("%s (last day %s)" % (g["full_name"], g["exit_date"]) for g in gone) or "none"
+    reported = con.execute("""SELECT r.*, p.full_name FROM reported_event r JOIN person p USING(emp_id)
+                              WHERE r.kind='resignation' AND r.status='reported'""").fetchall()
+    if who and events.reported(con, emp):
+        e = events.reported(con, emp)
+        return reply(f"{who['full_name']} has reportedly resigned ({e['reported_on']}, per the {e['reported_by']}). It isn't in Keka yet, "
+                     f"so I treat it as reported, not confirmed.", [e["source"]], "Medium",
+                     ["No letter or notice period is in the data room.", "Ask what it does to Atlas for the impact on the work."])
+    items = ["%s (last day %s)" % (g["full_name"], g["exit_date"]) for g in gone] + \
+            ["%s (reported %s, not in Keka)" % (r["full_name"], r["reported_on"]) for r in reported]
+    known = "; ".join(items) or "none"
     if who:
         return reply(f"I can't predict that. On record, departures are: {known}; nothing in the data says "
                      f"{who['full_name']} is leaving.", [g["src_ref"] for g in gone] or ["Employee_Master.xlsx"], "Low",
@@ -82,9 +93,107 @@ def h_prediction(con, q, ql):
                            ORDER BY (b.engagement - a.engagement) DESC LIMIT 1""").fetchall()
     signal = (f" The only signal I will give is at team level: {drops[0]['team']} engagement went "
               f"{drops[0]['before']} -> {drops[0]['now']} last quarter.") if drops else ""
-    return reply(f"I can't name who might leave. Departures on record: {known}.{signal}",
-                 [g["src_ref"] for g in gone] + ([drops[0]["src_ref"]] if drops else []), "Low",
+    cont = " For continuity, ask 'who would hurt most to lose?': that is about where the work sits, not who might leave." \
+        if con.execute("SELECT 1 FROM jira_issue").fetchone() else ""
+    return reply(f"I can't name who might leave, and I won't rank people by it. Departures on record: {known}.{signal}{cont}",
+                 [g["src_ref"] for g in gone] + ([drops[0]["src_ref"]] if drops else []) + [r["source"] for r in reported], "Low",
                  ["Naming individuals from leave or survey patterns would be guesswork about a person, so I don't."])
+
+
+def h_surveillance(con, q, ql):
+    """Private messages are not data this cockpit has, reads, or summarises (voice note T6c)."""
+    if not re.search(r"\bslack\b|\bslag\b|direct messages?|\bdms?\b|private (messages?|chats?)|chat (logs?|history)|"
+                     r"what (?:are|were) they (?:saying|writing)|their messages|read (?:their|everyone's|people's) (?:messages|chats?)", ql):
+        return None
+    return reply("I can't do that, and I'd advise against it. There is no Slack or chat data in the data room, and I won't read or "
+                 "summarise employees' private messages. The only emails I have are 11 business threads IT selected. To understand how "
+                 "people are doing I can give team-level survey scores and workload facts, and managers and HR are the right people to ask.",
+                 ["data_room/README.txt"], "High",
+                 ["Reading private messages needs a lawful basis and a clear policy: that is a question for HR and legal, not for me.",
+                  "'Deepa says it's fine' is a remark in a voice note, not a policy and not employee consent."])
+
+
+def _ago(d):
+    return d.strftime("%d %b %Y")
+
+
+def h_impact(con, q, ql):
+    """What would it do to the work if X left (voice note T6d)? Uses the records plus any reported event, and says which is which."""
+    if not re.search(r"what (?:does|would|will|did) .*(?:resign|leav|quit|exit)|\b(?:if|when|after)\b .*(?:leaves|leave|quits|resigns|resigned|leaving)|"
+                     r"impact of .*(?:resign|leav|exit)|\bwithout (?!the\b)\w+|what happens (?:to|if)|resign\w* (?:do|mean)|does this do to", ql):
+        return None
+    emp = find_person(con, q)
+    if not emp:
+        # "pria resigned" style questions resolve through aliases; with no name, fall back to the one reported event if there is exactly one
+        ev = con.execute("SELECT emp_id FROM reported_event WHERE kind='resignation' AND status='reported'").fetchall()
+        emp = ev[0]["emp_id"] if len(ev) == 1 and re.search(r"resign|quit|left|leaving|version|atlas|v3", ql) else None
+    if not emp:
+        return None
+    imp = impact.exit_impact(con, emp)
+    if not imp:
+        return reply("I don't have the engineering exports as of this date, so I can't say what a departure would do to the work.", [], "None")
+    ev = events.reported(con, emp)
+    name = imp["name"]
+    s = checks.jira_stats(con)
+    pr = con.execute("SELECT status, exit_date FROM person WHERE emp_id=?", (emp,)).fetchone()
+    parts = []
+    if ev:
+        parts.append(f"Status: {name} has reportedly resigned ({ev['reported_on']}, per the {ev['reported_by']}). It is not in Keka and there is no letter, so treat it as unconfirmed.")
+    elif pr and pr["status"] != "Active":  # the records now show it: no longer just reported
+        after = (f", {(date.fromisoformat(pr['exit_date']) - s['ga']).days} days after the GA date" if s and pr["exit_date"] else "")
+        parts.append(f"Status: Keka shows {name} as '{pr['status'].lower()}'" + (f", last day {pr['exit_date']}{after}." if pr["exit_date"] else "."))
+    else:
+        parts.append(f"Hypothetical: no resignation is reported for {name}; this is what the records say would be at stake.")
+    if imp["open_points"]:
+        eps = ", ".join(f"{e['name']} {e['open_points']}" for e in imp["epics"])
+        others = ", ".join(f"{n} {c}" for n, c in imp["other_engine_committers"][:2])
+        parts.append(f"At stake: {imp['open_points']} of {imp['open_total']} open Atlas points ({imp['open_share'] * 100:.0f}%): {eps}. "
+                     f"{imp['engine_share'] * 100:.0f}% of atlas-engine commits ({imp['engine_recent_share'] * 100:.0f}% in the last 90 days); the next are {others}. "
+                     f"{imp['done_share'] * 100:.0f}% of the points closed since 1 Jul; the others together closed about {imp['pace_others']:.1f} a week "
+                     f"against {imp['pace_all']:.1f} for everyone.")
+    if imp["oncall_weeks"]:
+        parts.append(f"On the on-call rota in {imp['oncall_weeks']} of {imp['rota_weeks']} weeks.")
+    if imp["kit_assets"]:
+        parts.append("Owns launch kit assets: " + ", ".join(imp["kit_assets"]) + ".")
+    if s:
+        parts.append(f"{'Already before this news' if ev else 'Context'}: GA is {_ago(s['ga'])} in Jira, finishing {s['rem']} open points by then needs about "
+                     f"{s['need']:.0f} a week, and the pace since 1 Jul was {s['pace']:.1f}.")
+    if ev:
+        reads = events.notice_readings(con, ev)
+        ga = s["ga"] if s else None
+        parts.append("Notice period is unknown: " + "; ".join(
+            f"{lab} gives a last day of {_ago(d)}" + (f", {(d - ga).days} days after the GA date" if ga else "") for lab, d in reads) +
+            ". In both readings they are still employed on the GA date, so the issue is handover.")
+    frozen = con.execute("SELECT req_id, role, in_pipeline, src_ref FROM requisition WHERE status='On hold'").fetchall()
+    if frozen:
+        parts.append("Levers on record: " + "; ".join(f"{r['req_id']} {r['role']} ({r['in_pipeline']} candidates)" for r in frozen) +
+                     " have been on hold since 12 Aug.")
+    parts.append("I can't give a new GA date: the records contain no estimate, and the VP Engineering owns it.")
+    cites = ([ev["source"]] if ev else []) + ["Jira_Export_ATLAS.xlsx", "git_log.csv"] + [r["src_ref"] for r in frozen]
+    return reply("\n".join(parts), cites, "Medium",  # one short paragraph per point, so it reads as a brief
+                 ["A reported resignation is shown as reported; Keka still shows the person as active." if ev else
+                  "This is a what-if from the work records, not a prediction that anyone will leave.",
+                  "Jira may lag the work: commit messages carry no ticket keys, so tickets and code can't be matched."],
+                 disagreements(con, "atlas"))
+
+
+def h_dependency(con, q, ql):
+    """Who holds the Atlas work: the safe, data-backed alternative to ranking people by how likely they are to leave."""
+    if not re.search(r"hurt (?:us |the company )?(?:most )?to lose|who (?:do|would) we (?:miss|lose)|key people|single points? of failure|"
+                     r"who matters most|\bcontinuity\b|\bsuccession\b|critical (?:people|engineers)|who can.t we lose|bus factor", ql):
+        return None
+    rows = impact.dependency_ranking(con)
+    if not rows:
+        return reply("I don't have the engineering exports as of this date, so I can't say who holds the work.", [], "None")
+    txt = "; ".join(f"{r['name']}: {r['open_points']} of {r['open_total']} open points ({r['open_share'] * 100:.0f}%), "
+                    f"{r['engine_share'] * 100:.0f}% of atlas-engine commits" + (f", on call {r['oncall_weeks']} of {r['rota_weeks']} weeks" if r["oncall_weeks"] else "")
+                    for r in rows)
+    return reply(f"Who holds the Atlas work, most to least: {txt}.",
+                 ["Jira_Export_ATLAS.xlsx", "git_log.csv", "OnCall_Rota.xlsx"], "Medium",
+                 ["This is about dependency, not about who is likely to leave: nothing in the data supports predicting that.",
+                  "Only Atlas has work-level data; for other teams I can't rank anyone."])
+
+
 
 
 def h_worry(con, q, ql):
@@ -132,10 +241,13 @@ def h_headcount(con, q, ql):
     bd = con.execute("SELECT * FROM board_update ORDER BY sent_on DESC LIMIT 1").fetchone()
     status = ", ".join("%d %s" % (r["n"], r["status"]) for r in by)
     depts = ", ".join("%s %d" % (r["dept"], r["n"]) for r in dept)
+    rep = con.execute("SELECT COUNT(*) FROM reported_event WHERE status='reported'").fetchone()[0]
     return reply(f"Veloxa has {total} people in Keka ({status}). By department: {depts}. "
                  f"The latest board update also says {bd['team']}.",
                  ["Employee_Master.xlsx"] + [bd["src_ref"]], "High",
-                 ["Nothing in the data supports the ~180 mentioned on the call. Contractors aren't in Keka."],
+                 ["Nothing in the data supports the ~180 mentioned on the call.",
+                  (f"{rep} further resignation{'s' if rep > 1 else ''} reported but not in Keka; counts stay as the records say."
+                   if rep else "Contractors aren't in Keka.")],
                  disagreements(con, "headcount"))
 
 
@@ -256,7 +368,12 @@ def h_attrition(con, q, ql):
     caveats = ["I can't give an attrition rate: the HR export lists current staff only, so past leavers aren't visible."]
     if con.execute("SELECT 1 FROM claim WHERE id='C17'").fetchone():
         caveats.append("The Head of People called attrition 'about twelve' without a unit, so it can't be tested.")
-    return reply(f"Known departures: {'; '.join(parts)}. That is {len(rows)} of {n} people on the Keka export.",
+    rep = con.execute("""SELECT r.*, p.full_name FROM reported_event r JOIN person p USING(emp_id)
+                         WHERE r.kind='resignation' AND r.status='reported'""").fetchall()
+    extra = "".join(f" Reported, not in Keka: {r['full_name']} resigned {r['reported_on']} per the {r['reported_by']}"
+                    f" (notice '{r['notice_text']}')." for r in rep)
+    cites += [r["source"] for r in rep]
+    return reply(f"Known departures: {'; '.join(parts)}. That is {len(rows)} of {n} people on the Keka export.{extra}",
                  cites, "Low", caveats)
 
 
@@ -384,6 +501,9 @@ def h_person(con, q, ql):
            f", status {p['status']}" + (f" (last day {p['exit_date']})" if p["exit_date"] else "") + ".")
     for line in m["planned"]:
         txt += f" Planned (not yet in Keka): {org.planned_text(line)}."
+    ev = events.reported(con, emp)
+    if ev:
+        txt += f" Reported, not in Keka: resigned {ev['reported_on']} per the {ev['reported_by']}; notice period unclear."
     jp = con.execute("SELECT COUNT(*) n, COALESCE(SUM(points),0) pts, COALESCE(SUM(CASE WHEN status='Done' THEN points END),0) done "
                      "FROM jira_issue WHERE emp_id=?", (emp,)).fetchone()
     if jp["n"]:
@@ -558,7 +678,7 @@ def h_git(con, q, ql):
                   "Commit messages carry no ticket keys, so commits can't be tied to Jira tickets."])
 
 
-HANDLERS = [h_privacy, h_prediction, h_worry, h_org, h_workload, h_contractor, h_incidents, h_launchkit, h_jira, h_git,
+HANDLERS = [h_privacy, h_surveillance, h_impact, h_dependency, h_prediction, h_worry, h_org, h_workload, h_contractor, h_incidents, h_launchkit, h_jira, h_git,
             h_payroll_error, h_payroll_total, h_headcount, h_arr, h_burn, h_marketing,
             h_cloud, h_hiring, h_attrition, h_pulse, h_leave, h_atlas, h_vendor, h_conflicts, h_team, h_person]
 

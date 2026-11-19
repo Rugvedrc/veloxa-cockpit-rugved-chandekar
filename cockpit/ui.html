@@ -15,7 +15,7 @@ form button{padding:10px 16px;border:0;border-radius:6px;background:var(--acc);c
 .mute{color:var(--mute);font-size:13px}.pill{font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);margin-left:6px}
 .s3{color:var(--hi)}.s2{color:var(--mid)}.s1{color:var(--lo)}ul{margin:6px 0;padding-left:20px}
 .chips button{margin:3px 4px 0 0;padding:4px 10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;cursor:pointer;font-size:13px}
-.hidden{display:none}.q{font-weight:600}
+.hidden{display:none}.q{font-weight:600}.ans{white-space:pre-line}
 .dis{border-left:3px solid var(--mid);padding:4px 10px;margin:8px 0;font-size:14px}.dis ul{margin:4px 0 0}
 header label{margin-left:auto;display:flex;gap:6px;align-items:center}
 </style></head><body>
@@ -48,7 +48,7 @@ async function loadTop(){const d=await (await fetch('/api/top3'+qs())).json();co
   if(!d.themes.length){s.append(el('div','card','Nothing had been released by this date.'));return}
   s.append(el('div','mute','The three things to worry about, most urgent first. No typing needed.'));
   d.themes.forEach(x=>{const c=el('div','card');
-    const h=el('div','q s'+x.severity,x.rank+'. '+x.label);h.append(el('span','pill',x.severity_label));
+    const h=el('div','q s'+x.severity,x.rank+'. '+x.label);h.append(el('span','pill',x.severity_label));if(x.urgent)h.append(el('span','pill','Reported today, not yet in records'));
     c.append(h,el('div','',x.headline),el('div','mute',x.detail));
     if(x.also.length){const u=el('ul');x.also.forEach(a=>u.append(el('li','',a.title)));c.append(el('div','mute','Also in this theme:'),u)}
     if(x.fyi_count)c.append(el('div','mute','Plus '+x.fyi_count+' minor item'+(x.fyi_count>1?'s':'')+' in All findings.'));
@@ -57,7 +57,7 @@ async function loadTop(){const d=await (await fetch('/api/top3'+qs())).json();co
     s.append(c)});
   s.append(el('div','mute','How this is ranked: '+d.rule+' All '+d.total_findings+' findings are under "All findings".'))}
 $('#f').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.trim();if(!q)return;$('#q').value='';
-  const r=await post('/api/ask',{q});const c=el('div','card');c.append(el('div','q',q),el('div','',r.answer));
+  const r=await post('/api/ask',{q});const c=el('div','card');c.append(el('div','q',q),el('div','ans',r.answer));
   if(r.disagreement&&r.disagreement.length){const d=el('div','dis');d.append(el('b','','The sources disagree'));const u=el('ul');r.disagreement.forEach(x=>u.append(el('li','',x)));d.append(u);c.append(d)}
   const m=el('div','mute','Confidence: '+r.confidence);c.append(m);
   if(r.cites.length){const u=el('ul','mute');r.cites.forEach(x=>u.append(el('li','',x)));c.append(el('div','mute','Sources:'),u)}
