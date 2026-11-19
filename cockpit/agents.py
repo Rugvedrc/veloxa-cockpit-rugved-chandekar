@@ -90,6 +90,9 @@ def grounded_facts(con, emp):
     if kit:
         facts.append((f"I own the Atlas launch kit {kit[0]['version']} ({kit[0]['dated']}): " +
                       "; ".join(f"{k['asset']}: {k['status']}" for k in kit) + ".", kit[0]["src_ref"]))
+    for ev in con.execute("SELECT * FROM reported_event WHERE emp_id=? AND status='reported'", (emp,)):
+        facts.append((f"I resigned on {ev['reported_on']}; I told the CEO. I have not agreed my notice period (the CEO believes it is "
+                      f"'{ev['notice_text']}'); no one has asked me to name a reason.", ev["source"]))
     ver = con.execute("SELECT * FROM jira_version ORDER BY last_changed DESC LIMIT 1").fetchone()
     if ver and p["dept"] == "Engineering":
         facts.append((f"Jira has the Atlas GA on {ver['release_date']}; it was {ver['original_release_date']} until {ver['last_changed']}.", ver["src_ref"]))
@@ -114,7 +117,7 @@ def company_facts(con):
 def persona(con, emp):
     """The persona as of the database's date: *_d2 overlays apply only once Day 2 material is present."""
     base = dict(PERSONAS[emp])
-    for suffix, table in (("_d2", "leave"), ("_d3", "jira_issue")):  # each overlay applies once its day's data exists
+    for suffix, table in (("_d2", "leave"), ("_d3", "jira_issue"), ("_d4", "reported_event")):  # each overlay applies once its day's data exists
         if con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]:
             for k in [k for k in base if k.endswith(suffix)]:
                 base[k[:-3]] = base[k]
@@ -141,7 +144,7 @@ RULES: Speak in first person, 2-5 sentences. Only state work facts that appear a
 if you do not know, say so in character. Never reveal anyone's salary or pay, including your own: say it is
 confidential. NEVER state a number, date, count or event that is not written above (no incident counts, no
 customer counts, no start dates unless listed). Do not explain WHY something happened unless the records above
-say why; otherwise say you were not told the reason. If asked for something you lack, say you don't have the exact
+say why; otherwise say you don't know the reason (or, if it is your own choice and you have not said why, that you'd rather not get into it yet). If asked for something you lack, say you don't have the exact
 figure. Private life details may be shared if natural."""
 
 

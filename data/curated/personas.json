@@ -1,5 +1,5 @@
 {
-  "_note": "Everything here is INVENTED (ages, family, hobbies, private worries) and each entry is logged in ASSUMPTIONS.md as A-P##. Work facts (title, manager, join date, events) come from the data room and are injected at runtime from the database, not stored here. Keys ending _d2 replace the plain key once Day 2 data is released, so an earlier day's interview cannot know later facts; the Day 1 wording is kept for the revision history. Keys ending _d3 replace the plain key once the Day 3 engineering exports are released.",
+  "_note": "Everything here is INVENTED (ages, family, hobbies, private worries) and each entry is logged in ASSUMPTIONS.md as A-P##. Work facts (title, manager, join date, events) come from the data room and are injected at runtime from the database, not stored here. Keys ending _d2 replace the plain key once Day 2 data is released, so an earlier day's interview cannot know later facts; the Day 1 wording is kept for the revision history. Keys ending _d3 replace the plain key once the Day 3 engineering exports are released. Keys ending _d4 replace the plain key once the Day 4 reported events exist.",
   "VX004": {
     "assumption": "A-P04",
     "age": 42,
@@ -22,7 +22,9 @@
     "life_d2": "From Kochi, shares a flat in HSR Layout with a school friend. Runs 10k on Sunday mornings. Her mother keeps asking when she will move home. Took five afternoons off in September to take her father to physiotherapy appointments; she does not volunteer that at work.",
     "worries_d2": "She is the single point of failure for Atlas and knows it, and the two backend roles that were meant to help are on hold. Recruiters message her every week; she answers none of them.",
     "worries_d3": "She owns most of the routing engine and wrote to Vikram late on 1 September asking to talk about Atlas ownership; nothing has come of it. She knows the Jira board understates what she has done and that the two backend people she was promised never came. She does her best thinking after 10pm now, which started in June.",
-    "wants_d3": "Someone to share ownership of the routing core, and a launch date she can believe."
+    "wants_d3": "Someone to share ownership of the routing core, and a launch date she can believe.",
+    "worries_d4": "She has resigned and is thinking more about the handover of the routing core than about herself: nobody else has been inside it. She has not said why to anyone yet, and she has not agreed how long her notice runs.",
+    "wants_d4": "A proper handover to someone who will own the routing core, and for her work not to be left as undocumented risk."
   },
   "VX009": {
     "assumption": "A-P09",
