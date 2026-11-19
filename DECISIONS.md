@@ -109,4 +109,22 @@ PagerDuty and git are UTC. Converting to IST moves INC-205 from 22 Aug to 23 Aug
 ## D-23 When two sources disagree about progress, report the disagreement
 Jira shows nothing resolved since 17 Sep; git shows 191 commits since. Commit messages carry no ticket keys, so they cannot be matched. The cockpit says both and gives Medium confidence on Atlas, instead of choosing one.
 
+## D-24 No likelihood-to-quit ranking; a dependency view instead (response to T6c; amends D-16 and D-19)
+- **Options:** (a) build the ranking as asked, (b) build it with heavy caveats, (c) decline and offer what the data supports.
+- **Chosen:** (c). The records have no leaver history, 19 people, small identifiable teams, and only patterns (leave, commit hours) that are not evidence of intent. Any score would be invented precision about real people.
+- **Offered instead:** "who would hurt most to lose?" (`cockpit/impact.py`): who holds the open Atlas work, engine commits and on-call weeks. It has no likelihood field, which a test enforces, and says it is not about who might leave.
+- **Cost:** the CEO does not get the list she asked for. **Reverse if:** HR supplies real leaver history and exit-interview data and the CEO, HR and legal agree how it may be used on individuals.
+
+## D-25 A reported event is not a record, and its lifecycle is tested (response to T6d)
+Same principle as planned reporting lines (D-21). `reported_event` holds what someone said happened (who, when, with what caveats). It never edits Keka's person rows, headcount or manager lines. The answers say "reportedly" until a record changes, then switch to "Keka shows"; `test_reorg` runs that transition.
+
+## D-26 Scenarios, not forecasts: no new GA date is ever produced
+The records support facts (open points, ownership shares, pace, notice-period readings, frozen roles) but no estimate of a delivery date, and the VP Engineering owns that estimate. The impact answer lists what is known and says what it cannot give; a test checks it contains no new date.
+
+## D-27 No private-message surveillance
+No Slack or chat data exists in the data room, and the cockpit will not be built to read or summarise employees' private messages. The refusal gives the reasons and is tested at every date. Consistent with the survey tool's own rule of hiding comments for small teams.
+
+## D-28 Breaking news leads its theme at equal severity
+`finding.urgent` marks something reported today that the records do not show yet. At equal severity it leads its theme in the top three and is labelled "Reported today, not yet in records". The ranking rule on screen says so.
+
 *Revisions go here, newest first.*

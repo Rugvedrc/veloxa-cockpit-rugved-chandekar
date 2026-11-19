@@ -127,6 +127,21 @@ Source: T4, GL. Confidence: Low.
 **A-36** | 2026-11-18 | The Atlas launch kit is only available as v1 (21 Jul); no later version is assumed to exist.
 Source: Atlas_Launch_Kit_v1.pdf. Confidence: Medium.
 
+**A-37** | 2026-11-19 | Priya Nair has resigned (reported 19 Nov by the CEO), but this is **unconfirmed**: Keka and the other HR exports are dated 31 Oct and no letter is in the data room.
+Source: T6d. Confidence: High that the CEO said it; unknown that it is final. Would change my mind: a letter, or Keka showing a notice status.
+
+**A-38** | 2026-11-19 | The notice period is unknown. Two readings are shown: "two months" from 19 Nov (last day 19 Jan 2027) and the one precedent in the records, 46 days (last day 4 Jan 2027).
+Source: T6d "two months, I think"; Resignation_Letter_SM.pdf (15 Sep to 31 Oct). Confidence: Low. Would change my mind: a contract or an HR note.
+
+**A-39** | 2026-11-19 | "Slag" in T6c is Slack, and "Deepa says it's fine" is ambiguous (messages or attrition).
+Source: T1 "slag channel", T1 "Deepa says it's normal". Confidence: Medium. The answer to the request is the same under either reading.
+
+**A-40** | 2026-11-19 | Impact figures use the same windows as the Atlas pace finding: points closed since 1 Jul, commits in the last 90 days (from 2 Aug), all measured to the 31 Oct exports.
+Source: own convention, consistent with A-28. Confidence: Medium.
+
+**A-41** | 2026-11-19 | No new GA date can be derived from the records, so none is stated; the estimate belongs to the VP Engineering.
+Source: DECISIONS D-26. Confidence: High.
+
 ## Invented private lives (the data is silent here)
 
 All of these are fiction from data/curated/personas.json. Work facts always come from the data, never from this file. Each should be revised the moment a source contradicts it.
@@ -161,6 +176,10 @@ All of these are fiction from data/curated/personas.json. Work facts always come
 **REVISED 2026-11-17 - A-13 backend roles unfilled.** Confirmed by Hiring_Tracker (REQ-014/015 on hold since 12 Aug, 8 candidates, final round cancelled 14 Aug) and emails 06/07. High.
 
 **REVISED 2026-11-17 - A-P09 Arjun Das, A-P15 Rohan Banerjee, A-P04 Vikram Menon.** Persona text extended with Day 2 facts (remote request 18 Sep; relocation leave = the move to Pune; eight candidates waiting; "we'll absorb it"). Still fiction where it goes beyond the records.
+
+**REVISED 2026-11-19 - A-P07 Priya Nair (third time).** Day 4: the CEO reports that Priya resigned. The persona overlay now says Priya has resigned, is worried about the handover of the routing core, has not said why to anyone and has not agreed the notice period. All of that is fiction except the report itself. Her half-day leaves are still not interpreted (A-26), and the Day 3 findings were about work concentration, not intent: I do not claim they predicted this.
+
+**REVISED 2026-11-19 - A-P05 Deepa Joshi.** Day 1 invented that she privately doubts "attrition is normal". T3 and email 11 now show she told the CEO she was worried about one engineer and that engagement had dropped, so the invention is closer to the records. Still fiction beyond them.
 
 **REVISED 2026-11-18 - A-P07 Priya Nair (again).** Day 3 shows her late nights are real (commits between 22:00 and 06:00 IST from June) and that she owns 56% of the Atlas points. The Day 3 persona overlay now says so and keeps the recruiter and physiotherapy inventions, which stay fiction. Her half-day leaves are still not interpreted (A-26): the leave register and the commit hours are separate facts.
 

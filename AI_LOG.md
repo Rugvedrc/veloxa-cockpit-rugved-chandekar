@@ -65,6 +65,21 @@ Main tasks given to AI, where it was wrong, and what changed. Honest entries onl
 | 37 | The reorganisation test found that someone added to the data was not recognised by name until a rebuild, and that a department called "Revenue" was read as the revenue figure | `tests/test_reorg.py` | Name lookup also reads the people table; the revenue pattern is stricter |
 | 38 | A test forbade the word "Jira" in a Day 2 answer that correctly says Jira "isn't loaded yet" | Test failure | Test now checks for the Day 3 facts instead |
 
+## 2026-11-19 (Day 4)
+
+**Tasks given to AI:** read T6c and T6d; decide what to build and what to refuse; build reported events, an impact view and a dependency view; write the refusals; extend the tests; write VOICE_NOTES, the Day 4 notes and the final checks.
+
+| # | Mistake or near-miss | How it was caught | Fix |
+|---|---|---|---|
+| 39 | My first instinct for T6c was a "retention risk score" with caveats. A score with caveats is still a ranking of named people | Asking what the records could actually support | Declined; offered a dependency view with no likelihood field, and a test that the field is absent |
+| 40 | The dependency list could be misread as a flight-risk list | Reading the output as the CEO would | Every answer says it is not about who might leave; the refusal points to it as the alternative |
+| 41 | A query in the impact handler selected too few columns and crashed on first run | Running the new questions | Fixed; the question set now covers the handler |
+| 42 | "Already before this news" appeared in a what-if about someone who has not resigned | Reading the Sneha what-if | The wording depends on whether an event is reported |
+| 43 | The generic "is leaving" finding for a departure without a letter was hard-coded to say the person sits in Marketing | Writing the lifecycle test (a Keka-confirmed engineer) | Text now says only what the record says; the Marketing text is kept only where it is true |
+| 44 | A prompt rule meant for other people's decisions made the Priya agent answer "I was not told the reason" about her own resignation | Live test | Rule now distinguishes unknown reasons from reasons the person has not shared |
+| 45 | I wrote "she believes" about the CEO, but no source states the CEO's pronouns | Re-reading | Reworded to "the CEO believes" |
+| 46 | I passed an unexpected parameter to a file-writing call and it was rejected | Tool error | Reissued correctly; no content was lost |
+
 **Things I decided myself, not the AI**
 - Which source to believe when they conflict: each entry in TRANSCRIPT_NOTES.md was reviewed by me; the AI proposed, I accepted or changed. (To be filled in with my own reasoning where I disagreed.)
 

@@ -39,7 +39,7 @@ python cockpit.py build [--data PATH] [--as-of DATE]            # rebuild databa
 python cockpit.py test            # same as: python -m unittest discover tests
 ```
 
-`tests/questions.json` holds 91 question/answer checks (answers with sources, "sources disagree", refusals to give individual pay, declining to name people as flight risks, "I don't know", and point-in-time cases that must not leak later material). `tests/test_cockpit.py` checks the data model, findings, release-date gating and the agents; `tests/test_day2.py` and `tests/test_day3.py` check each day's loaders (against the raw files), findings, identity resolution and claim revisions; `tests/test_reorg.py` reorganises a copy of the data (a CRO is hired, teams move, people leave) and runs everything against it; `tests/test_compat.py` guards Python 3.9 compatibility. Tests never call an LLM.
+`tests/questions.json` holds 115 question/answer checks (answers with sources, "sources disagree", refusals to give individual pay, declining to name people as flight risks, "I don't know", and point-in-time cases that must not leak later material). `tests/test_cockpit.py` checks the data model, findings, release-date gating and the agents; `tests/test_day2.py`, `test_day3.py` and `test_day4.py` check each day's loaders (against the raw files), findings, identity resolution, claim revisions and the Day 4 refusals; `tests/test_reorg.py` reorganises a copy of the data (a CRO is hired, teams move, people leave, a reported resignation becomes a record) and runs everything against it; `tests/test_compat.py` guards Python 3.9 compatibility. Tests never call an LLM.
 
 ## Agents and AI
 
@@ -61,11 +61,12 @@ The cockpit itself does not use an LLM: answers are assembled from SQL so every 
 | `cockpit/ask.py` | Answer engine: question -> SQL -> answer, sources, confidence, caveats |
 | `cockpit/worry.py` | The top-three screen: groups findings into themes and ranks them by a stated rule |
 | `cockpit/org.py` | Reporting lines with dates; planned changes kept apart from facts |
+| `cockpit/events.py`, `cockpit/impact.py` | Reported events (not records); what the work records say is at stake if a person left |
 | `cockpit/agents.py` | The 14 agents |
 | `cockpit/server.py`, `ui.html` | Web UI and JSON API (127.0.0.1 only) |
 | `data/curated/` | Hand-written inputs: transcript claims, invented personas |
 | `ARCHITECTURE.md`, `ASSUMPTIONS.md`, `TRANSCRIPT_NOTES.md`, `DECISIONS.md`, `AI_LOG.md` | The reasoning log |
-| `VOICE_NOTES.md` | Written response to each CEO voice note (T6a, T6b so far) |
+| `VOICE_NOTES.md` | Written response to each CEO voice note (T6a, T6b, T6c, T6d) |
 
 ## Privacy
 
@@ -73,4 +74,4 @@ Individual salaries are stored (payroll register) but no answer or agent exposes
 
 ## Status
 
-Days 1 to 3 (16-18 Nov) are loaded, reconciled and analysed. Later drops are added day by day; until a day's data is modelled, later "as of" dates are answered from the latest modelled snapshot and say so.
+Days 1 to 4 (16-19 Nov) are loaded, reconciled and analysed; nothing is released after Day 4. Later drops are added day by day; until a day's data is modelled, later "as of" dates are answered from the latest modelled snapshot and say so.

@@ -144,4 +144,35 @@ Marketing "will report to the new CRO from next month. Or the month after." plus
 - Priya Nair's second git address is a no-reply form of her own name (D-20).
 - Jira lists assignees only as initials (a team setting, per the file's own note).
 
+## Day 4 additions (released Thu 19 Nov; voice notes only, no data room files)
+
+### T6c - CEO voice note
+| # | Heard | Concluded | Evidence | Conf. |
+|---|---|---|---|---|
+| T6c-1 | "a list of everyone ranked by who's likely to quit" | Declined as asked. The records cannot support a likelihood ranking; a dependency view (who holds the work) is offered. | Employee_Master; Pulse_Survey; DECISIONS D-24 | High |
+| T6c-2 | "show me their slag messages" | "slag" = Slack (T1 used it for Slack too). No Slack or chat data exists in the data room. Reading private messages is declined on principle. | README; T1 | High |
+| T6c-3 | "Deepa says it's fine." | Ambiguous (messages? attrition? as in T1's "Deepa says it's normal"). Either way it is at odds with Deepa's own words: T3 "one engineer I'm worried about", email 11 (29 Sep) "engineering pulse dropped". A relayed remark is not a policy and not consent. | T3; 11.eml | Medium |
+
+### T6d - CEO voice note
+| # | Heard | Concluded | Evidence | Conf. |
+|---|---|---|---|---|
+| T6d-1 | "Pria resigned this morning." | Priya Nair (alias "Pria" since T1/T2). Reported 19 Nov by the CEO; not in Keka (exports are dated 31 Oct); no letter. Stored as a reported event, not a record. | Employee_Master R10; T6d | High on identity; the event itself is unconfirmed |
+| T6d-2 | "Notice period two months, I think." | Unknown. Last day 19 Jan 2027 on "two months", 4 Jan 2027 on the only precedent (46 days). Both are after the 15 Dec GA date. | Resignation_Letter_SM; Jira Versions R2 | Low |
+| T6d-3 | "What does this do to version three?" | 54% of open points, 70% of engine commits, about 65% of recent output are with one person; the date was already unrealistic; no new date can be derived. | Jira; git_log; Hiring_Tracker R6-R7 | Medium |
+
+### Revisions to earlier rows (originals kept)
+- **C40 / T5-1 (Atlas date).** C65 extends it: the 15 Dec date needed about 18 points a week before the resignation was reported.
+- **T3-8 ("one engineer I'm worried about", unnamed).** Still unnamed by Deepa. The cockpit never identified the person; the reported resignation is the CEO's, not an inference of the system.
+- **T5-7 ("Pria has been doing late nights").** Read with T6d, it is tempting to call the late nights a warning sign. The records only show hours worked; they say nothing about intent, and I do not claim a ranking would have predicted this.
+
+### New contradictions between written sources
+| # | What disagrees | What I did |
+|---|---|---|
+| S-13 | "Deepa says it's fine" (as relayed) vs Deepa's T3 worry about one engineer and her 29 Sep note on the engagement drop | Reported both; claim C62 marked as disagreeing |
+| S-14 | Voice note (resigned 19 Nov) vs Keka/Employee_Master (Active, exported 31 Oct) | Not a contradiction: the record is older. Kept as "reported" until a record changes. |
+
+### Things that look like mistakes but may not be
+- "Pria" is Priya Nair; "slag" is Slack; "this morning" is 19 Nov, the release date of the note.
+- Headcount still says 19 (18 Active, 1 Notice period) after a reported resignation. That is deliberate: a voice note does not edit Keka.
+
 *Revisions go here, newest first.*
