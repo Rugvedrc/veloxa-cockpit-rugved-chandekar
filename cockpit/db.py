@@ -49,7 +49,8 @@ CREATE TABLE claim (             -- curated statements from transcripts, with ou
   revises TEXT);                 -- id of an earlier claim this one corrects or extends
 CREATE TABLE finding (           -- computed data-quality / business issues
   id TEXT PRIMARY KEY, kind TEXT, severity INT, title TEXT, detail TEXT, evidence TEXT, status TEXT,
-  theme TEXT);                   -- delivery | money | people: groups findings for the top-three view
+  theme TEXT,                    -- delivery | money | people: groups findings for the top-three view
+  urgent INT DEFAULT 0);         -- 1 = breaking news (e.g. a reported resignation): leads its theme at equal severity
 CREATE TABLE requisition (       -- Keka Hire tracker
   req_id TEXT PRIMARY KEY, role TEXT, team TEXT, hiring_manager TEXT, opened TEXT, status TEXT,
   status_date TEXT, in_pipeline INT, notes TEXT, src_ref TEXT);
@@ -82,6 +83,9 @@ CREATE TABLE launch_kit (        -- one row per asset of a kit version
   version TEXT, owner_raw TEXT, owner_id TEXT, dated TEXT, asset TEXT, status TEXT, src_ref TEXT);
 CREATE TABLE contractor (        -- people paid through a vendor, so not in Keka
   id TEXT PRIMARY KEY, name TEXT, vendor_id TEXT, role TEXT, evidence TEXT, confidence TEXT);
+CREATE TABLE reported_event (    -- something someone SAID happened that no record shows yet (voice note T6d)
+  id TEXT PRIMARY KEY, emp_id TEXT, kind TEXT, reported_on TEXT, reported_by TEXT, status TEXT,
+  notice_text TEXT, notice_months INT, source TEXT, note TEXT);   -- status: reported | confirmed
 CREATE TABLE reporting_line (    -- who reports to whom, with dates; planned lines are never shown as fact
   emp_id TEXT, manager_id TEXT, manager_title TEXT, from_date TEXT, to_date TEXT, status TEXT,
   source TEXT, note TEXT);      -- status: current | planned

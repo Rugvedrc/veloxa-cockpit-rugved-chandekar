@@ -1,0 +1,15 @@
+[
+  {
+    "id": "EV-1",
+    "emp_id": "VX007",
+    "kind": "resignation",
+    "reported_on": "2026-11-19",
+    "reported_by": "CEO (voice note T6d)",
+    "status": "reported",
+    "notice_text": "two months, I think",
+    "notice_months": 2,
+    "released_on": "2026-11-19",
+    "source": "T6d_CEO_Voice_Note.docx",
+    "note": "The CEO: 'Pria resigned this morning. Notice period two months, I think.' 'Pria' is Priya Nair (alias, T1/T2). The data room's HR exports are dated 31 Oct, so Keka still shows Priya Nair as Active; there is no letter. The CEO is unsure of the notice period."
+  }
+]

@@ -6,13 +6,13 @@ the code or curated inputs are newer.
 """
 from datetime import date
 
-from . import checks, db, loaders, org, resolve
+from . import checks, db, events, loaders, org, resolve
 from .ask import ask, reply
 
 FIRST_RELEASE = "2026-11-16"
 # The newest drop whose contents are actually modelled and analysed. Bump this as each day's
 # data is added; until then a later "as of" date is answered from this snapshot and says so.
-ANALYSED_THROUGH = "2026-11-18"
+ANALYSED_THROUGH = "2026-11-19"
 
 
 class NothingReleased(Exception):
@@ -43,6 +43,7 @@ def build(day, path=None):
     resolve.load_entities(con)
     resolve.load_claims(con)
     org.load_org(con)
+    events.load_events(con)
     checks.run_all(con)
     con.commit()
     return con

@@ -22,7 +22,8 @@ SEV = {3: "Act now", 2: "Look soon", 1: "FYI"}
 
 RULE = ("Ranked by the highest severity in each theme; ties go to the CEO's stated main concern "
         "(engineering speed / Atlas), then to the theme with more findings at 'look soon' or above. "
-        "Severity is my judgement, not the data's.")
+        "Inside a theme, something reported today that the records do not show yet leads at equal severity, "
+        "and is labelled as reported. Severity is my judgement, not the data's.")
 
 
 def _owner(con, title_like):
@@ -31,7 +32,7 @@ def _owner(con, title_like):
 
 
 def top_three(con, n=3):
-    rows = [dict(r) for r in con.execute("SELECT * FROM finding ORDER BY severity DESC, id")]
+    rows = [dict(r) for r in con.execute("SELECT * FROM finding ORDER BY severity DESC, urgent DESC, id")]
     by = {}
     for f in rows:
         by.setdefault(f["theme"], []).append(f)
@@ -56,7 +57,7 @@ def top_three(con, n=3):
         label, owner_title = THEMES.get(theme, (theme.title(), None))
         out.append({
             "rank": i, "theme": theme, "label": label, "headline": head["title"], "detail": head["detail"],
-            "severity": head["severity"], "severity_label": SEV[head["severity"]],
+            "severity": head["severity"], "severity_label": SEV[head["severity"]], "urgent": bool(head["urgent"]),
             "also": [{"id": f["id"], "title": f["title"], "severity": f["severity"]} for f in more],
             "fyi_count": fyi, "evidence": ev[:8],
             "suggested_owner": _owner(con, owner_title) if owner_title else None,

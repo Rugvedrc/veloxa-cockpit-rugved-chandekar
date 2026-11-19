@@ -15,9 +15,9 @@ from datetime import date, timedelta
 MON = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
 
 
-def _add(con, fid, kind, sev, title, detail, evidence, theme):
-    con.execute("INSERT OR REPLACE INTO finding VALUES(?,?,?,?,?,?,?,?)",
-                (fid, kind, sev, title, detail, evidence, "open", theme))
+def _add(con, fid, kind, sev, title, detail, evidence, theme, urgent=0):
+    con.execute("INSERT OR REPLACE INTO finding VALUES(?,?,?,?,?,?,?,?,?)",
+                (fid, kind, sev, title, detail, evidence, "open", theme, urgent))
 
 
 def _has(con, table):
@@ -450,11 +450,15 @@ def departures(con):
                  f"job. He built the launch kit and promised a handover before leaving.{kit}{tail}",
                  f"{res['src_ref']}; {r['src_ref']}" + (f"; {back['src_ref']}" if back else ""), "people")
         else:
+            board = con.execute("SELECT narrative FROM board_update ORDER BY sent_on DESC LIMIT 1").fetchone()
+            if r["dept"] == "Marketing" and board and "departure in marketing" in board["narrative"].lower():
+                why = (" The Q3 board update lists this as 'one planned departure in marketing'. They sit in Marketing, the function "
+                       "that just ran the Summit and is preparing Atlas launch materials; knowledge handover is a risk.")
+            else:  # any other leaver: say only what the record says
+                why = f" {r['dept']} loses a {r['title']}; their work needs a named owner before the last day."
             _add(con, f"F-EXIT-{r['emp_id']}", "people", 2,
                  f"{r['full_name']} ({r['title']}) is leaving - last day {r['exit_date']}",
-                 f"Status '{r['status']}'. The Q3 board update lists this as 'one planned departure in marketing'. "
-                 f"They sit in Marketing, the function that just ran the Summit and is preparing Atlas launch "
-                 f"materials; knowledge handover is a risk.", r["src_ref"], "people")
+                 f"Status '{r['status']}'.{why}", r["src_ref"], "people")
 
 
 def pending_requests(con):
@@ -498,9 +502,43 @@ def sequence_gaps(con):
                  f"{a['src_ref']}; {b['src_ref']}", "money")
 
 
+def reported_exits(con):
+    """A resignation someone has reported that no record shows yet: what it would do to the work, and what is unknown."""
+    from . import events, impact  # local import: these modules read tables that exist only on later days
+    for ev in con.execute("SELECT * FROM reported_event WHERE kind='resignation' AND status='reported'").fetchall():
+        imp = impact.exit_impact(con, ev["emp_id"])
+        p = con.execute("SELECT full_name, title, status FROM person WHERE emp_id=?", (ev["emp_id"],)).fetchone()
+        if not p:
+            continue
+        v = _ver(con)
+        ga = date.fromisoformat(v["release_date"]) if v else None
+        reads = events.notice_readings(con, ev)
+        read_txt = "; ".join(f"{lab}: last day {d.isoformat()}" + (f" ({(d - ga).days} days after the {ga.strftime('%d %b')} GA)" if ga else "")
+                             for lab, d in reads)
+        stake = ""
+        if imp and imp["open_points"]:
+            eps = ", ".join(f"{e['name']} ({e['open_points']})" for e in imp["epics"])
+            others = ", ".join(f"{n} {c}" for n, c in imp["other_engine_committers"][:2])
+            stake = (f" Open Atlas work in their name: {imp['open_points']} of {imp['open_total']} points ({imp['open_share'] * 100:.0f}%): {eps}. "
+                     f"{imp['engine_share'] * 100:.0f}% of all atlas-engine commits ({imp['engine_recent_share'] * 100:.0f}% in the last 90 days); "
+                     f"the next are {others}. They finished {imp['done_share'] * 100:.0f}% of the points closed since 1 Jul; the others together "
+                     f"closed about {imp['pace_others']:.1f} points a week.")
+        frozen = con.execute("SELECT req_id, role, in_pipeline FROM requisition WHERE status='On hold'").fetchall()
+        lever = (" On hold since 12 Aug: " + "; ".join(f"{r['req_id']} {r['role']} ({r['in_pipeline']} candidates)" for r in frozen) + ".") if frozen else ""
+        _add(con, f"F-EVENT-{ev['emp_id']}", "people", 3,
+             f"{p['full_name']} has reportedly resigned ({ev['reported_on']}); about {imp['open_share'] * 100 if imp else 0:.0f}% of the open Atlas work is theirs",
+             f"Reported by the {ev['reported_by']}; not in Keka (it still shows {p['status']}, export dated 31 Oct) and there is no letter, so this is "
+             f"unconfirmed.{stake} Notice period is unknown: {read_txt or 'no basis'}. In both readings they are still employed on the GA date, "
+             f"so the question is handover, not an empty chair on day one.{lever} The records contain no estimate for a new GA date, "
+             f"so none is given.",
+             f"{ev['source']}; Jira_Export_ATLAS.xlsx!Issues; git_log.csv" + ("; " + "; ".join(r["src_ref"] for r in con.execute(
+                 "SELECT src_ref FROM requisition WHERE status='On hold'")) if frozen else ""),
+             "delivery" if imp and imp["open_points"] else "people", urgent=1)
+
+
 def run_all(con):
     for fn in (payroll_proration, vendor_lookalikes, cost_trends, payroll_flat, hiring, hiring_vs_board, atlas, atlas_burn,
                key_person, git_identities, oncall_load, launch_kit, contractor_invoice, pulse_drops, departures,
-               pending_requests, reorg_pending, spoken_vs_data, sequence_gaps):
+               pending_requests, reorg_pending, reported_exits, spoken_vs_data, sequence_gaps):
         fn(con)
     con.commit()
