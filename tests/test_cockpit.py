@@ -94,7 +94,7 @@ class CockpitTests(unittest.TestCase):
         self.assertIn("Nothing had been released", r["answer"])
 
     def test_later_date_is_answered_from_snapshot_and_says_so(self):
-        r = build.answer("What is our ARR?", "2026-11-19")  # Day 4 is not modelled yet
+        r = build.answer("What is our ARR?", "2026-11-20")  # nothing is released after Day 4 (19 Nov)
         self.assertTrue(any("not modelled yet" in c for c in r["caveats"]))
 
     # --- agents (offline mode only)
