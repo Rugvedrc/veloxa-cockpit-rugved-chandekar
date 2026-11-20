@@ -9,10 +9,10 @@ Veloxa is a synthetic company created for the Hiyaku Systems hackathon; all data
 Requires Python 3.9 or newer. The data room is **not** in this repo (it is confidential), so point the command at the zip you were sent, or at the unzipped folder:
 
 ```
-python bootstrap.py --data path/to/Veloxa_Hackathon_Release_Packs.zip
+python bootstrap.py --data path/to/Veloxa_Hackathon_Release_Packs.zip --serve
 ```
 
-On macOS/Linux use `python3`. It creates `.venv`, installs two dependencies (`openpyxl`, `pypdf`), builds the databases, and runs the automated test set. If the zip sits next to this folder, in `~/Downloads`, or in `~/Desktop`, `--data` can be omitted. The location is remembered in `data/.datapath` (git-ignored).
+On macOS/Linux use `python3`. It creates `.venv`, installs two dependencies (`openpyxl`, `pypdf`), builds the databases, runs the automated test set and then **starts the cockpit** at http://127.0.0.1:8765. Leave out `--serve` to set up and test only. If the zip sits next to this folder, in `~/Downloads`, or in `~/Desktop`, `--data` can be omitted. The location is remembered in `data/.datapath` (git-ignored).
 
 ## Run
 
